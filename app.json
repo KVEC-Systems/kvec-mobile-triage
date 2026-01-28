@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "MedStar Triage",
-    "slug": "medstar-triage",
+    "name": "KVEC Triage",
+    "slug": "kvec-triage",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "scheme": "medstar-triage",
+    "scheme": "kvec-triage",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",

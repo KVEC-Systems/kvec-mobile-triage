@@ -1,5 +1,5 @@
 {
-  "name": "medstar-triage",
+  "name": "kvec-triage",
   "version": "1.0.0",
   "main": "expo-router/entry",
   "onnxruntimeExtensionsEnabled": "true",

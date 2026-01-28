@@ -49,11 +49,9 @@ export default function DownloadScreen() {
     async function check() {
       const modelStatus = await checkModelStatus();
       
-      // SetFit models are required (fast triage), GGUF is optional (follow-up chat)
-      const setfitReady = modelStatus.setfit.specialtyExists && modelStatus.setfit.conditionExists;
-      
-      if (setfitReady) {
-        // SetFit models exist, can proceed to main screen
+      // GGUF model is required for triage (SetFit ONNX not yet working)
+      if (modelStatus.gguf.exists) {
+        // Model exists, can proceed to main screen
         setStatus('complete');
         setTimeout(() => router.replace('/'), 500);
       } else {

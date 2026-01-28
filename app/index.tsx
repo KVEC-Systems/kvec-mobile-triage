@@ -23,24 +23,25 @@ export default function HomeScreen() {
   const [isCheckingModel, setIsCheckingModel] = useState(true);
   const [isLoadingModel, setIsLoadingModel] = useState(false);
 
-  // Check if SetFit models exist on mount, redirect to download if not, then pre-load
+  // Check if GGUF model exists on mount, redirect to download if not
   useEffect(() => {
     async function checkAndLoadModel() {
       try {
         const status = await checkModelStatus();
-        const setfitReady = status.setfit.specialtyExists && status.setfit.conditionExists;
         
-        if (!setfitReady) {
+        if (!status.gguf.exists) {
           router.replace('/download');
           return;
         }
         
-        // SetFit models exist - pre-load them in background
+        // Model exists - try to pre-load SetFit (non-blocking)
         setIsCheckingModel(false);
         setIsLoadingModel(true);
-        await initializeSetFit();
+        await initializeSetFit().catch(() => {
+          // SetFit failed, will use LLM fallback - that's ok
+        });
       } catch (error) {
-        console.error('Error checking/loading SetFit models:', error);
+        console.error('Error checking models:', error);
       } finally {
         setIsCheckingModel(false);
         setIsLoadingModel(false);
