@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  AppState,
+  type AppStateStatus,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +15,8 @@ import {
   downloadGGUFModel,
   getRemainingDownloadSize,
   formatBytes,
+  pauseDownload,
+  hasResumableDownload,
   type DownloadProgress,
 } from '../lib/download';
 
@@ -21,6 +25,23 @@ export default function DownloadScreen() {
   const [progress, setProgress] = useState<DownloadProgress | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [downloadSize, setDownloadSize] = useState<number>(0);
+  const appState = useRef(AppState.currentState);
+
+  // Handle app state changes to pause/resume download
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', async (nextAppState: AppStateStatus) => {
+      if (appState.current === 'active' && nextAppState.match(/inactive|background/)) {
+        // App going to background - pause download
+        if (status === 'downloading') {
+          console.log('App backgrounding, pausing download...');
+          await pauseDownload();
+        }
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => subscription.remove();
+  }, [status]);
 
   // Check model status on mount
   useEffect(() => {
@@ -34,7 +55,15 @@ export default function DownloadScreen() {
       } else {
         const size = await getRemainingDownloadSize();
         setDownloadSize(size);
-        setStatus('ready');
+        
+        // Check if there's a download to resume
+        const hasResumable = await hasResumableDownload();
+        if (hasResumable) {
+          // Auto-resume interrupted download
+          setStatus('ready');
+        } else {
+          setStatus('ready');
+        }
       }
     }
     check();
@@ -44,16 +73,22 @@ export default function DownloadScreen() {
     setStatus('downloading');
     setErrorMessage(null);
 
-    const success = await downloadGGUFModel((prog) => {
-      setProgress(prog);
-    });
+    try {
+      const success = await downloadGGUFModel((prog) => {
+        setProgress(prog);
+      });
 
-    if (success) {
-      setStatus('complete');
-      setTimeout(() => router.replace('/'), 1000);
-    } else {
-      setStatus('error');
-      setErrorMessage('Download failed. Please check your internet connection and try again.');
+      if (success) {
+        setStatus('complete');
+        setTimeout(() => router.replace('/'), 1000);
+      } else {
+        setStatus('error');
+        setErrorMessage('Download failed. Please check your internet connection and try again.');
+      }
+    } catch (error) {
+      // Download was interrupted (likely app went to background)
+      setStatus('ready');
+      setErrorMessage('Download paused. Tap to resume.');
     }
   }, []);
 
