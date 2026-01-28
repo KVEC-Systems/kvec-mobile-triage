@@ -1,0 +1,801 @@
+{
+  "metrics": {
+    "total_cases": 45,
+    "correct": 21,
+    "accuracy": 0.47,
+    "avg_confidence": 0.67,
+    "avg_inference_time_ms": 0.02,
+    "per_specialty": {
+      "Urology": {
+        "total": 3,
+        "correct": 1,
+        "precision": 1,
+        "recall": 0.33,
+        "f1": 0.5
+      },
+      "Cardiology": {
+        "total": 3,
+        "correct": 1,
+        "precision": 0.5,
+        "recall": 0.33,
+        "f1": 0.4
+      },
+      "Gastroenterology": {
+        "total": 3,
+        "correct": 3,
+        "precision": 0.75,
+        "recall": 1,
+        "f1": 0.86
+      },
+      "Behavioral Health": {
+        "total": 3,
+        "correct": 2,
+        "precision": 1,
+        "recall": 0.67,
+        "f1": 0.8
+      },
+      "Neurology": {
+        "total": 5,
+        "correct": 2,
+        "precision": 0.67,
+        "recall": 0.4,
+        "f1": 0.5
+      },
+      "Dermatology": {
+        "total": 4,
+        "correct": 2,
+        "precision": 0.67,
+        "recall": 0.5,
+        "f1": 0.57
+      },
+      "Orthopedic Surgery": {
+        "total": 3,
+        "correct": 2,
+        "precision": 0.33,
+        "recall": 0.67,
+        "f1": 0.44
+      },
+      "Pulmonology": {
+        "total": 3,
+        "correct": 2,
+        "precision": 0.5,
+        "recall": 0.67,
+        "f1": 0.57
+      },
+      "Rheumatology": {
+        "total": 3,
+        "correct": 0,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0
+      },
+      "Women's Health": {
+        "total": 3,
+        "correct": 3,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1
+      },
+      "Primary Care": {
+        "total": 4,
+        "correct": 3,
+        "precision": 0.18,
+        "recall": 0.75,
+        "f1": 0.29
+      },
+      "Pain Management": {
+        "total": 2,
+        "correct": 0,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0
+      },
+      "Oncology": {
+        "total": 2,
+        "correct": 0,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0
+      },
+      "Sports Medicine": {
+        "total": 2,
+        "correct": 0,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0
+      },
+      "Vascular Medicine": {
+        "total": 2,
+        "correct": 0,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0
+      }
+    }
+  },
+  "results": [
+    {
+      "symptom": "burning pain when I pee, have to urinate frequently",
+      "expected_specialty": "Urology",
+      "predicted_specialty": "Urology",
+      "confidence": 0.85,
+      "correct": true,
+      "inference_time_ms": 1,
+      "conditions_predicted": [
+        "Urinary Tract Infection",
+        "Cystitis"
+      ],
+      "conditions_expected": [
+        "Urinary Tract Infection",
+        "Cystitis"
+      ]
+    },
+    {
+      "symptom": "blood in my urine and lower back pain",
+      "expected_specialty": "Urology",
+      "predicted_specialty": "Orthopedic Surgery",
+      "confidence": 0.75,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Musculoskeletal evaluation needed"
+      ],
+      "conditions_expected": [
+        "Kidney Stones",
+        "Hematuria"
+      ]
+    },
+    {
+      "symptom": "difficulty starting to urinate, weak stream, getting up multiple times at night",
+      "expected_specialty": "Urology",
+      "predicted_specialty": "Primary Care",
+      "confidence": 0.5,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "General evaluation needed"
+      ],
+      "conditions_expected": [
+        "Benign Prostatic Hyperplasia",
+        "Prostate Issues"
+      ]
+    },
+    {
+      "symptom": "chest pain that gets worse with exertion, shortness of breath",
+      "expected_specialty": "Cardiology",
+      "predicted_specialty": "Gastroenterology",
+      "confidence": 0.82,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "GERD",
+        "Esophagitis"
+      ],
+      "conditions_expected": [
+        "Angina",
+        "Coronary Artery Disease"
+      ]
+    },
+    {
+      "symptom": "heart racing for no reason, palpitations especially at night",
+      "expected_specialty": "Cardiology",
+      "predicted_specialty": "Cardiology",
+      "confidence": 0.75,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Cardiac evaluation needed"
+      ],
+      "conditions_expected": [
+        "Arrhythmia",
+        "Palpitations"
+      ]
+    },
+    {
+      "symptom": "swollen ankles and legs, difficulty breathing when lying down",
+      "expected_specialty": "Cardiology",
+      "predicted_specialty": "Pulmonology",
+      "confidence": 0.75,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Respiratory evaluation needed"
+      ],
+      "conditions_expected": [
+        "Heart Failure",
+        "Edema"
+      ]
+    },
+    {
+      "symptom": "chest pain after eating, burning in my throat, acid taste",
+      "expected_specialty": "Gastroenterology",
+      "predicted_specialty": "Gastroenterology",
+      "confidence": 0.82,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "GERD",
+        "Esophagitis"
+      ],
+      "conditions_expected": [
+        "GERD",
+        "Acid Reflux"
+      ]
+    },
+    {
+      "symptom": "trouble swallowing, food getting stuck in my throat",
+      "expected_specialty": "Gastroenterology",
+      "predicted_specialty": "Gastroenterology",
+      "confidence": 0.75,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "GI evaluation needed"
+      ],
+      "conditions_expected": [
+        "Dysphagia",
+        "Esophageal Issues"
+      ]
+    },
+    {
+      "symptom": "severe abdominal cramping, blood in stool, diarrhea for weeks",
+      "expected_specialty": "Gastroenterology",
+      "predicted_specialty": "Gastroenterology",
+      "confidence": 0.75,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "GI evaluation needed"
+      ],
+      "conditions_expected": [
+        "Inflammatory Bowel Disease",
+        "Colitis"
+      ]
+    },
+    {
+      "symptom": "feeling anxious and can't sleep, constant worry",
+      "expected_specialty": "Behavioral Health",
+      "predicted_specialty": "Behavioral Health",
+      "confidence": 0.8,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Depression",
+        "Anxiety"
+      ],
+      "conditions_expected": [
+        "Anxiety",
+        "Insomnia"
+      ]
+    },
+    {
+      "symptom": "lost interest in activities, feeling hopeless, no energy",
+      "expected_specialty": "Behavioral Health",
+      "predicted_specialty": "Primary Care",
+      "confidence": 0.5,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "General evaluation needed"
+      ],
+      "conditions_expected": [
+        "Depression",
+        "Major Depressive Disorder"
+      ]
+    },
+    {
+      "symptom": "panic attacks, racing heart, feeling like I'm going to die",
+      "expected_specialty": "Behavioral Health",
+      "predicted_specialty": "Behavioral Health",
+      "confidence": 0.8,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Depression",
+        "Anxiety"
+      ],
+      "conditions_expected": [
+        "Panic Disorder",
+        "Anxiety"
+      ]
+    },
+    {
+      "symptom": "severe headaches with visual aura, sensitivity to light",
+      "expected_specialty": "Neurology",
+      "predicted_specialty": "Neurology",
+      "confidence": 0.75,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Neurological evaluation needed"
+      ],
+      "conditions_expected": [
+        "Migraine",
+        "Headache Disorder"
+      ]
+    },
+    {
+      "symptom": "numbness and tingling in hands and feet, weakness",
+      "expected_specialty": "Neurology",
+      "predicted_specialty": "Neurology",
+      "confidence": 0.75,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Neurological evaluation needed"
+      ],
+      "conditions_expected": [
+        "Peripheral Neuropathy",
+        "Nerve Damage"
+      ]
+    },
+    {
+      "symptom": "sudden confusion, difficulty speaking, one side weakness",
+      "expected_specialty": "Neurology",
+      "predicted_specialty": "Primary Care",
+      "confidence": 0.5,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "General evaluation needed"
+      ],
+      "conditions_expected": [
+        "Stroke",
+        "TIA"
+      ]
+    },
+    {
+      "symptom": "itchy red rash on arms that spreads, dry flaky skin",
+      "expected_specialty": "Dermatology",
+      "predicted_specialty": "Dermatology",
+      "confidence": 0.78,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Dermatitis",
+        "Skin Lesion"
+      ],
+      "conditions_expected": [
+        "Eczema",
+        "Dermatitis"
+      ]
+    },
+    {
+      "symptom": "changing mole, irregular borders, getting darker",
+      "expected_specialty": "Dermatology",
+      "predicted_specialty": "Dermatology",
+      "confidence": 0.78,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Dermatitis",
+        "Skin Lesion"
+      ],
+      "conditions_expected": [
+        "Melanoma",
+        "Skin Cancer"
+      ]
+    },
+    {
+      "symptom": "severe acne, painful cysts on face and back",
+      "expected_specialty": "Dermatology",
+      "predicted_specialty": "Primary Care",
+      "confidence": 0.5,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "General evaluation needed"
+      ],
+      "conditions_expected": [
+        "Cystic Acne",
+        "Acne Vulgaris"
+      ]
+    },
+    {
+      "symptom": "lower back pain radiating to leg, numbness in foot",
+      "expected_specialty": "Orthopedic Surgery",
+      "predicted_specialty": "Neurology",
+      "confidence": 0.75,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Neurological evaluation needed"
+      ],
+      "conditions_expected": [
+        "Sciatica",
+        "Herniated Disc"
+      ]
+    },
+    {
+      "symptom": "knee swelling after injury, can't bear weight",
+      "expected_specialty": "Orthopedic Surgery",
+      "predicted_specialty": "Orthopedic Surgery",
+      "confidence": 0.75,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Musculoskeletal evaluation needed"
+      ],
+      "conditions_expected": [
+        "ACL Tear",
+        "Meniscus Injury"
+      ]
+    },
+    {
+      "symptom": "shoulder pain, can't raise arm above head, grinding noise",
+      "expected_specialty": "Orthopedic Surgery",
+      "predicted_specialty": "Orthopedic Surgery",
+      "confidence": 0.75,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Musculoskeletal evaluation needed"
+      ],
+      "conditions_expected": [
+        "Rotator Cuff Tear",
+        "Shoulder Impingement"
+      ]
+    },
+    {
+      "symptom": "chronic cough, wheezing, difficulty breathing especially at night",
+      "expected_specialty": "Pulmonology",
+      "predicted_specialty": "Pulmonology",
+      "confidence": 0.75,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Respiratory evaluation needed"
+      ],
+      "conditions_expected": [
+        "Asthma",
+        "Chronic Bronchitis"
+      ]
+    },
+    {
+      "symptom": "shortness of breath getting worse, persistent cough with mucus",
+      "expected_specialty": "Pulmonology",
+      "predicted_specialty": "Pulmonology",
+      "confidence": 0.75,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Respiratory evaluation needed"
+      ],
+      "conditions_expected": [
+        "COPD",
+        "Chronic Obstructive Pulmonary Disease"
+      ]
+    },
+    {
+      "symptom": "coughing up blood, unexplained weight loss, chest pain",
+      "expected_specialty": "Pulmonology",
+      "predicted_specialty": "Cardiology",
+      "confidence": 0.75,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Cardiac evaluation needed"
+      ],
+      "conditions_expected": [
+        "Lung Cancer",
+        "Pulmonary Mass"
+      ]
+    },
+    {
+      "symptom": "joint pain in multiple joints, morning stiffness lasting hours",
+      "expected_specialty": "Rheumatology",
+      "predicted_specialty": "Orthopedic Surgery",
+      "confidence": 0.75,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Musculoskeletal evaluation needed"
+      ],
+      "conditions_expected": [
+        "Rheumatoid Arthritis",
+        "Inflammatory Arthritis"
+      ]
+    },
+    {
+      "symptom": "fatigue, joint pain, butterfly rash on face",
+      "expected_specialty": "Rheumatology",
+      "predicted_specialty": "Dermatology",
+      "confidence": 0.78,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Dermatitis",
+        "Skin Lesion"
+      ],
+      "conditions_expected": [
+        "Lupus",
+        "Systemic Lupus Erythematosus"
+      ]
+    },
+    {
+      "symptom": "red swollen big toe, sudden severe pain, can't touch it",
+      "expected_specialty": "Rheumatology",
+      "predicted_specialty": "Primary Care",
+      "confidence": 0.5,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "General evaluation needed"
+      ],
+      "conditions_expected": [
+        "Gout",
+        "Gouty Arthritis"
+      ]
+    },
+    {
+      "symptom": "irregular periods, severe cramping, heavy bleeding",
+      "expected_specialty": "Women's Health",
+      "predicted_specialty": "Women's Health",
+      "confidence": 0.75,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Gynecological evaluation needed"
+      ],
+      "conditions_expected": [
+        "Menorrhagia",
+        "Dysmenorrhea"
+      ]
+    },
+    {
+      "symptom": "pelvic pain, pain during intercourse, difficulty getting pregnant",
+      "expected_specialty": "Women's Health",
+      "predicted_specialty": "Women's Health",
+      "confidence": 0.75,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Gynecological evaluation needed"
+      ],
+      "conditions_expected": [
+        "Endometriosis",
+        "Pelvic Inflammatory Disease"
+      ]
+    },
+    {
+      "symptom": "hot flashes, night sweats, mood changes, missed periods",
+      "expected_specialty": "Women's Health",
+      "predicted_specialty": "Women's Health",
+      "confidence": 0.75,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Gynecological evaluation needed"
+      ],
+      "conditions_expected": [
+        "Menopause",
+        "Perimenopause"
+      ]
+    },
+    {
+      "symptom": "fatigue, always tired, no energy even with sleep",
+      "expected_specialty": "Primary Care",
+      "predicted_specialty": "Primary Care",
+      "confidence": 0.5,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "General evaluation needed"
+      ],
+      "conditions_expected": [
+        "Fatigue",
+        "Chronic Fatigue"
+      ]
+    },
+    {
+      "symptom": "always thirsty, urinating frequently, unexplained weight loss",
+      "expected_specialty": "Primary Care",
+      "predicted_specialty": "Primary Care",
+      "confidence": 0.5,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "General evaluation needed"
+      ],
+      "conditions_expected": [
+        "Diabetes",
+        "Type 2 Diabetes"
+      ]
+    },
+    {
+      "symptom": "sore throat, runny nose, mild cough for a few days",
+      "expected_specialty": "Primary Care",
+      "predicted_specialty": "Pulmonology",
+      "confidence": 0.75,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Respiratory evaluation needed"
+      ],
+      "conditions_expected": [
+        "Common Cold",
+        "Upper Respiratory Infection"
+      ]
+    },
+    {
+      "symptom": "chronic pain everywhere, tender points, fibromyalgia diagnosed",
+      "expected_specialty": "Pain Management",
+      "predicted_specialty": "Primary Care",
+      "confidence": 0.5,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "General evaluation needed"
+      ],
+      "conditions_expected": [
+        "Fibromyalgia",
+        "Chronic Pain Syndrome"
+      ]
+    },
+    {
+      "symptom": "severe back pain for years, tried everything, need pain relief",
+      "expected_specialty": "Pain Management",
+      "predicted_specialty": "Orthopedic Surgery",
+      "confidence": 0.75,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Musculoskeletal evaluation needed"
+      ],
+      "conditions_expected": [
+        "Chronic Back Pain",
+        "Failed Back Surgery Syndrome"
+      ]
+    },
+    {
+      "symptom": "unexplained weight loss, night sweats, swollen lymph nodes",
+      "expected_specialty": "Oncology",
+      "predicted_specialty": "Primary Care",
+      "confidence": 0.5,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "General evaluation needed"
+      ],
+      "conditions_expected": [
+        "Lymphoma",
+        "Cancer"
+      ]
+    },
+    {
+      "symptom": "lump in breast, nipple discharge, family history of cancer",
+      "expected_specialty": "Oncology",
+      "predicted_specialty": "Primary Care",
+      "confidence": 0.5,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "General evaluation needed"
+      ],
+      "conditions_expected": [
+        "Breast Cancer",
+        "Breast Mass"
+      ]
+    },
+    {
+      "symptom": "runner's knee pain, pain going down stairs, swelling",
+      "expected_specialty": "Sports Medicine",
+      "predicted_specialty": "Orthopedic Surgery",
+      "confidence": 0.75,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "Musculoskeletal evaluation needed"
+      ],
+      "conditions_expected": [
+        "Patellofemoral Syndrome",
+        "Runner's Knee"
+      ]
+    },
+    {
+      "symptom": "tennis elbow, pain on outside of elbow, worse with gripping",
+      "expected_specialty": "Sports Medicine",
+      "predicted_specialty": "Primary Care",
+      "confidence": 0.5,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "General evaluation needed"
+      ],
+      "conditions_expected": [
+        "Lateral Epicondylitis",
+        "Tennis Elbow"
+      ]
+    },
+    {
+      "symptom": "leg pain when walking, relieved by rest, cold feet",
+      "expected_specialty": "Vascular Medicine",
+      "predicted_specialty": "Primary Care",
+      "confidence": 0.5,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "General evaluation needed"
+      ],
+      "conditions_expected": [
+        "Peripheral Artery Disease",
+        "Claudication"
+      ]
+    },
+    {
+      "symptom": "swollen leg, red and warm, pain in calf",
+      "expected_specialty": "Vascular Medicine",
+      "predicted_specialty": "Primary Care",
+      "confidence": 0.5,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "General evaluation needed"
+      ],
+      "conditions_expected": [
+        "Deep Vein Thrombosis",
+        "DVT"
+      ]
+    },
+    {
+      "symptom": "seeing floaters and flashing lights in vision",
+      "expected_specialty": "Neurology",
+      "predicted_specialty": "Primary Care",
+      "confidence": 0.5,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "General evaluation needed"
+      ],
+      "conditions_expected": [
+        "Retinal Issues",
+        "Visual Disturbance"
+      ]
+    },
+    {
+      "symptom": "ear ringing constant, hearing loss, dizziness",
+      "expected_specialty": "Primary Care",
+      "predicted_specialty": "Primary Care",
+      "confidence": 0.5,
+      "correct": true,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "General evaluation needed"
+      ],
+      "conditions_expected": [
+        "Tinnitus",
+        "Hearing Loss"
+      ]
+    },
+    {
+      "symptom": "hair falling out in patches, brittle nails",
+      "expected_specialty": "Dermatology",
+      "predicted_specialty": "Primary Care",
+      "confidence": 0.5,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "General evaluation needed"
+      ],
+      "conditions_expected": [
+        "Alopecia",
+        "Hair Loss"
+      ]
+    },
+    {
+      "symptom": "difficulty concentrating, memory problems, brain fog",
+      "expected_specialty": "Neurology",
+      "predicted_specialty": "Primary Care",
+      "confidence": 0.5,
+      "correct": false,
+      "inference_time_ms": 0,
+      "conditions_predicted": [
+        "General evaluation needed"
+      ],
+      "conditions_expected": [
+        "Cognitive Impairment",
+        "Memory Issues"
+      ]
+    }
+  ]
+}

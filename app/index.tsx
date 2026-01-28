@@ -12,13 +12,11 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as Speech from 'expo-speech';
 import { checkModelStatus } from '../lib/download';
 import { initializeSetFit } from '../lib/setfit';
 
 export default function HomeScreen() {
   const [symptom, setSymptom] = useState('');
-  const [isListening, setIsListening] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingModel, setIsCheckingModel] = useState(true);
   const [isLoadingModel, setIsLoadingModel] = useState(false);
@@ -64,18 +62,7 @@ export default function HomeScreen() {
     setIsLoading(false);
   }, [symptom]);
 
-  const toggleVoiceInput = useCallback(async () => {
-    if (isListening) {
-      setIsListening(false);
-      // Note: expo-speech is for TTS, not STT
-      // For STT, we'd need expo-av or a native module
-      Speech.stop();
-    } else {
-      setIsListening(true);
-      // Placeholder for voice input
-      // In production, use @react-native-voice/voice
-    }
-  }, [isListening]);
+
 
   // Show loading while checking model status
   if (isCheckingModel) {
@@ -115,16 +102,6 @@ export default function HomeScreen() {
           />
 
           <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={[styles.voiceButton, isListening && styles.voiceButtonActive]}
-              onPress={toggleVoiceInput}
-            >
-              <Ionicons 
-                name={isListening ? 'mic' : 'mic-outline'} 
-                size={24} 
-                color={isListening ? '#fff' : '#2563eb'} 
-              />
-            </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.submitButton, !symptom.trim() && styles.submitButtonDisabled]}
@@ -233,20 +210,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 16,
     gap: 12,
-  },
-  voiceButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 2,
-    borderColor: '#2563eb',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-  },
-  voiceButtonActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
   },
   submitButton: {
     flex: 1,

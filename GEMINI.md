@@ -9,7 +9,7 @@ KVEC Triage is an **offline-first** React Native app using Expo that routes pati
 - **Framework**: Expo SDK 54 + React Native 0.81
 - **Routing**: expo-router v6 (file-based)
 - **LLM**: llama.rn with MedGemma 4B Q2_K GGUF model (~1.4GB)
-- **Fast Classification**: SetFit ONNX models (blocked - see Known Issues)
+- **Fast Classification**: SetFit ONNX models for sub-100ms specialty/condition routing
 - **Build**: EAS Build for iOS/Android
 
 ## Project Structure
@@ -20,20 +20,23 @@ app/               # Expo Router pages
   index.tsx        # Home - symptom input
   download.tsx     # Model download screen
   results.tsx      # Triage results display
+  diagnostic.tsx   # Multi-turn diagnostic assessment
   chat.tsx         # Follow-up chat with MedGemma
 lib/
-  llm.ts           # LLM service (init, inference, fallback)
+  llm.ts           # LLM service (init, inference, enrichment, fallback)
   download.ts      # Model download from HuggingFace
-  setfit.ts        # SetFit ONNX classification (disabled)
+  setfit.ts        # SetFit ONNX classification (body + head models)
 ```
 
 ## Key Features
 
 1. **Symptom Input** - Text input with example symptoms
 2. **Model Download** - Downloads MedGemma GGUF + SetFit ONNX from HuggingFace Hub
-3. **On-Device Inference** - Uses llama.rn for privacy-first triage
-4. **Fallback Routing** - Keyword-based triage when LLM unavailable
-5. **Chat Screen** - Follow-up questions via MedGemma
+3. **Tiered Inference** - SetFit for fast classification (~100ms), LLM for rich enrichment
+4. **Fallback Routing** - Keyword-based triage when models unavailable
+5. **Diagnostic Flow** - Multi-turn assessment with suggested answers
+6. **Chat Screen** - Follow-up questions via MedGemma
+7. **Visit Summary** - Generate shareable provider handoff documents
 
 ## Development Commands
 
@@ -65,24 +68,6 @@ Downloaded to `[DocumentDirectory]/models/`:
 | Tokenizers + Labels | (per model repo) | <1MB |
 
 ## Known Issues
-
-### SetFit ONNX Blocked
-
-The SetFit head models output `ONNX_TYPE_SEQUENCE` which `onnxruntime-react-native` doesn't support. **SetFit is currently disabled.**
-
-To fix, re-export head models with:
-
-```python
-from skl2onnx import convert_sklearn
-from skl2onnx.common.data_types import FloatTensorType
-
-options = {type(model.model_head): {'zipmap': False}}
-onnx_model = convert_sklearn(
-    model.model_head,
-    initial_types=[('embedding', FloatTensorType([None, 384]))],
-    options=options
-)
-```
 
 ### Android 16KB ELF Alignment
 
