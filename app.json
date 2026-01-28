@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "MedStar Triage",
+    "slug": "medstar-triage",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "medstar-triage",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a365d"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.medstar.triage"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1a365d"
+      },
+      "package": "com.medstar.triage",
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "04cf7c49-af5e-449c-8bb0-6730e4a527da"
+      }
+    }
+  }
+}
