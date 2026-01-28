@@ -7,7 +7,7 @@ import { initLlama, LlamaContext } from 'llama.rn';
 import { Paths, File } from 'expo-file-system';
 
 // Model configuration
-const MODEL_FILENAME = 'medgemma-4b-q4_k_m.gguf';
+const MODEL_FILENAME = 'medgemma-4b-q2_k.gguf';
 
 // Get model file reference (lazy init since Paths.document may not be ready at module load)
 function getModelFile(): File {

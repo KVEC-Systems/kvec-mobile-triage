@@ -17,9 +17,9 @@ import {
 const HF_BASE = 'https://huggingface.co';
 const MODELS = {
   gguf: {
-    repo: 'ekim1394/medgemma-4b-gguf',
-    file: 'medgemma-4b-q4_k_m.gguf',
-    size: 2489894368, // 2.3GB
+    repo: 'ekim1394/medgemma-4b-q2_k-gguf',
+    file: 'medgemma-4b-q2_k.gguf',
+    size: 1500000000, // ~1.4GB (Q2_K is roughly 60% of Q4_K_M)
   },
   // SetFit models can be added later for ONNX runtime
 };
