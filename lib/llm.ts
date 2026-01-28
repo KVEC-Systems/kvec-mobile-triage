@@ -115,10 +115,10 @@ export async function initializeLLM(): Promise<boolean> {
 
     llamaContext = await initLlama({
       model: modelFile.uri,
-      n_ctx: 2048,        // Context window
+      n_ctx: 1024,        // Reduced context for faster inference
       n_batch: 512,       // Batch size for prompt processing
-      n_threads: 4,       // Number of CPU threads
-      n_gpu_layers: 0,    // CPU-only for now (GPU requires Metal on iOS)
+      n_threads: 6,       // CPU threads for parallel processing
+      n_gpu_layers: 32,   // GPU acceleration (Metal on iOS, Vulkan on Android)
       use_mlock: true,    // Lock model in memory
     });
 
@@ -154,10 +154,10 @@ export async function runTriage(symptom: string): Promise<TriageResult> {
     // Run inference
     const response = await llamaContext.completion({
       prompt,
-      n_predict: 300,      // Max tokens to generate
-      temperature: 0.3,    // Low temperature for consistency
+      n_predict: 150,      // Reduced for faster inference (output is structured)
+      temperature: 0.2,    // Lower for more deterministic triage
       top_p: 0.9,
-      stop: ['</s>', '\n\n\n'],
+      stop: ['</s>', '\n\n\n', '5.'],  // Stop after guidance section
     });
 
     const inferenceTime = Date.now() - startTime;
