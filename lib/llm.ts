@@ -38,6 +38,8 @@ const SPECIALTIES = [
   'Women\'s Health',
 ];
 
+export type UrgencyLevel = 'emergency' | 'urgent' | 'routine';
+
 export interface TriageResult {
   specialty: string;
   confidence: number;
@@ -45,6 +47,12 @@ export interface TriageResult {
   guidance: string;
   inferenceTime: number;
   usedLLM: boolean;
+  // Structured extraction fields
+  urgency: UrgencyLevel;
+  bodySystem: string;
+  redFlags: string[];
+  followUpTimeframe: string;
+  suggestedQuestions: string[];
 }
 
 /**
@@ -180,16 +188,23 @@ export async function runTriage(symptom: string): Promise<TriageResult> {
  * Build the prompt for MedGemma triage
  */
 function buildTriagePrompt(symptom: string): string {
-  // Compact prompt for faster inference
+  // Structured prompt for comprehensive triage output
   return `<bos><start_of_turn>user
-Route symptoms to specialty. Options: ${SPECIALTIES.join(', ')}
+You are a medical triage assistant. Route symptoms to the appropriate specialty.
 
-Symptoms: "${symptom}"
+Specialties: ${SPECIALTIES.join(', ')}
 
-Respond:
-1. SPECIALTY: [name]
+Patient symptoms: "${symptom}"
+
+Respond in this EXACT format:
+1. SPECIALTY: [one specialty from the list]
 2. CONFIDENCE: [high/medium/low]
-3. CONDITIONS: [list]
+3. URGENCY: [emergency/urgent/routine]
+4. BODY_SYSTEM: [affected system, e.g. urinary, cardiovascular, neurological, musculoskeletal, dermatological, gastrointestinal, respiratory, psychiatric]
+5. RED_FLAGS: [comma-separated warning signs, or "none"]
+6. CONDITIONS: [comma-separated possible conditions]
+7. TIMEFRAME: [when to be seen, e.g. "immediately", "within 24 hours", "within 1 week"]
+8. QUESTIONS: [2-3 follow-up questions to ask]
 <end_of_turn>
 <start_of_turn>model
 1. SPECIALTY:`;
@@ -203,35 +218,69 @@ function parseTriageResponse(response: string, symptom: string): Omit<TriageResu
   
   let specialty = 'Primary Care';
   let confidence = 0.6;
+  let urgency: UrgencyLevel = 'routine';
+  let bodySystem = 'general';
+  let redFlags: string[] = [];
   let conditions: string[] = [];
+  let followUpTimeframe = 'within 1 week';
+  let suggestedQuestions: string[] = [];
   let guidance = '';
 
   for (const line of lines) {
     const trimmed = line.trim();
     
-    if (trimmed.startsWith('SPECIALTY:') || line.includes('1. SPECIALTY:')) {
+    // Parse each field with flexible matching
+    if (/SPECIALTY:/i.test(trimmed)) {
       const value = trimmed.replace(/.*SPECIALTY:\s*/i, '').trim();
       specialty = findClosestSpecialty(value);
-    } else if (trimmed.startsWith('CONFIDENCE:') || line.includes('2. CONFIDENCE:')) {
+    } else if (/CONFIDENCE:/i.test(trimmed)) {
       const value = trimmed.replace(/.*CONFIDENCE:\s*/i, '').toLowerCase();
       confidence = value.includes('high') ? 0.9 : value.includes('medium') ? 0.75 : 0.6;
-    } else if (trimmed.startsWith('CONDITIONS:') || line.includes('3. CONDITIONS:')) {
+    } else if (/URGENCY:/i.test(trimmed)) {
+      const value = trimmed.replace(/.*URGENCY:\s*/i, '').toLowerCase();
+      if (value.includes('emergency')) urgency = 'emergency';
+      else if (value.includes('urgent')) urgency = 'urgent';
+      else urgency = 'routine';
+    } else if (/BODY_SYSTEM:/i.test(trimmed)) {
+      bodySystem = trimmed.replace(/.*BODY_SYSTEM:\s*/i, '').trim().toLowerCase() || 'general';
+    } else if (/RED_FLAGS:/i.test(trimmed)) {
+      const value = trimmed.replace(/.*RED_FLAGS:\s*/i, '').trim();
+      if (value.toLowerCase() !== 'none' && value.length > 0) {
+        redFlags = value.split(',').map(f => f.trim()).filter(f => f.length > 0);
+      }
+    } else if (/CONDITIONS:/i.test(trimmed)) {
       const value = trimmed.replace(/.*CONDITIONS:\s*/i, '');
       conditions = value.split(',').map(c => c.trim()).filter(c => c.length > 0);
-    } else if (trimmed.startsWith('GUIDANCE:') || line.includes('4. GUIDANCE:')) {
-      guidance = trimmed.replace(/.*GUIDANCE:\s*/i, '');
+    } else if (/TIMEFRAME:/i.test(trimmed)) {
+      followUpTimeframe = trimmed.replace(/.*TIMEFRAME:\s*/i, '').trim() || 'within 1 week';
+    } else if (/QUESTIONS:/i.test(trimmed)) {
+      const value = trimmed.replace(/.*QUESTIONS:\s*/i, '');
+      suggestedQuestions = value.split(/[,;]/).map(q => q.trim()).filter(q => q.length > 0);
     }
   }
 
-  // Fallback if parsing failed
+  // Fallbacks for required fields
   if (conditions.length === 0) {
     conditions = ['Further evaluation needed'];
   }
   if (!guidance) {
     guidance = `Recommend evaluation by ${specialty} specialist for the described symptoms.`;
   }
+  if (suggestedQuestions.length === 0) {
+    suggestedQuestions = ['How long have you had these symptoms?', 'Have you tried any treatments?'];
+  }
 
-  return { specialty, confidence, conditions, guidance };
+  return { 
+    specialty, 
+    confidence, 
+    conditions, 
+    guidance,
+    urgency,
+    bodySystem,
+    redFlags,
+    followUpTimeframe,
+    suggestedQuestions,
+  };
 }
 
 /**
@@ -289,7 +338,7 @@ function findClosestSpecialty(input: string): string {
 function runFallbackTriage(symptom: string, elapsedMs: number): TriageResult {
   const symptomLower = symptom.toLowerCase();
   
-  // Keyword-based routing
+  // Keyword-based routing with full structured data
   if (symptomLower.includes('burn') && (symptomLower.includes('pee') || symptomLower.includes('urin'))) {
     return {
       specialty: 'Urology',
@@ -298,6 +347,11 @@ function runFallbackTriage(symptom: string, elapsedMs: number): TriageResult {
       guidance: 'Patient presents with dysuria. Recommend urinalysis and urine culture.',
       inferenceTime: elapsedMs,
       usedLLM: false,
+      urgency: 'routine',
+      bodySystem: 'urinary',
+      redFlags: [],
+      followUpTimeframe: 'within 48 hours',
+      suggestedQuestions: ['Do you have a fever?', 'Is there blood in your urine?', 'Any back or flank pain?'],
     };
   }
   
@@ -309,6 +363,11 @@ function runFallbackTriage(symptom: string, elapsedMs: number): TriageResult {
       guidance: 'Postprandial chest discomfort suggests acid reflux. Consider PPI trial.',
       inferenceTime: elapsedMs,
       usedLLM: false,
+      urgency: 'routine',
+      bodySystem: 'gastrointestinal',
+      redFlags: [],
+      followUpTimeframe: 'within 1 week',
+      suggestedQuestions: ['Does it worsen when lying down?', 'Any difficulty swallowing?', 'Any weight loss?'],
     };
   }
   
@@ -320,6 +379,11 @@ function runFallbackTriage(symptom: string, elapsedMs: number): TriageResult {
       guidance: 'Screen with PHQ-9/GAD-7. Assess for suicidal ideation.',
       inferenceTime: elapsedMs,
       usedLLM: false,
+      urgency: 'urgent',
+      bodySystem: 'psychiatric',
+      redFlags: ['Assess for suicidal ideation'],
+      followUpTimeframe: 'within 48-72 hours',
+      suggestedQuestions: ['How long have you felt this way?', 'Any thoughts of self-harm?', 'How is your sleep?'],
     };
   }
   
@@ -331,6 +395,11 @@ function runFallbackTriage(symptom: string, elapsedMs: number): TriageResult {
       guidance: 'Visual examination needed. Document lesion characteristics.',
       inferenceTime: elapsedMs,
       usedLLM: false,
+      urgency: 'routine',
+      bodySystem: 'dermatological',
+      redFlags: [],
+      followUpTimeframe: 'within 1-2 weeks',
+      suggestedQuestions: ['Is the area spreading?', 'Any new products or exposures?', 'Is it painful or just itchy?'],
     };
   }
   
@@ -342,6 +411,11 @@ function runFallbackTriage(symptom: string, elapsedMs: number): TriageResult {
       guidance: 'Rule out cardiac causes. Consider ECG and cardiac workup.',
       inferenceTime: elapsedMs,
       usedLLM: false,
+      urgency: 'emergency',
+      bodySystem: 'cardiovascular',
+      redFlags: ['Chest pain', 'Possible cardiac event'],
+      followUpTimeframe: 'immediately',
+      suggestedQuestions: ['Any shortness of breath?', 'Pain radiating to arm or jaw?', 'Any dizziness or sweating?'],
     };
   }
 
@@ -353,6 +427,11 @@ function runFallbackTriage(symptom: string, elapsedMs: number): TriageResult {
     guidance: 'Unable to determine specific specialty. Recommend primary care evaluation.',
     inferenceTime: elapsedMs,
     usedLLM: false,
+    urgency: 'routine',
+    bodySystem: 'general',
+    redFlags: [],
+    followUpTimeframe: 'within 1 week',
+    suggestedQuestions: ['How long have you had these symptoms?', 'Have you tried any treatments?'],
   };
 }
 

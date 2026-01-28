@@ -10,7 +10,7 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { initializeSetFit, classifySymptom, isSetFitReady, type SetFitResult } from '../lib/setfit';
-import { runTriage, type TriageResult } from '../lib/llm';
+import { runTriage, type TriageResult, type UrgencyLevel } from '../lib/llm';
 
 // Result type that works for both SetFit and LLM results
 interface UnifiedResult {
@@ -20,6 +20,12 @@ interface UnifiedResult {
   guidance: string;
   inferenceTime: number;
   usedSetFit: boolean;
+  // Structured extraction fields
+  urgency: UrgencyLevel;
+  bodySystem: string;
+  redFlags: string[];
+  followUpTimeframe: string;
+  suggestedQuestions: string[];
 }
 
 // Initialize SetFit on module load
@@ -44,6 +50,12 @@ async function runTriageInference(symptom: string): Promise<UnifiedResult> {
         guidance: `Recommended evaluation by ${result.specialty} specialist.`,
         inferenceTime: result.inferenceTime,
         usedSetFit: true,
+        // SetFit doesn't provide these, use sensible defaults
+        urgency: 'routine' as UrgencyLevel,
+        bodySystem: 'general',
+        redFlags: [],
+        followUpTimeframe: 'within 1 week',
+        suggestedQuestions: ['How long have you had these symptoms?', 'Have you tried any treatments?'],
       };
     } catch (error) {
       console.error('SetFit classification failed, falling back to LLM:', error);
@@ -54,8 +66,17 @@ async function runTriageInference(symptom: string): Promise<UnifiedResult> {
   console.log('Using LLM for triage...');
   const llmResult = await runTriage(symptom);
   return {
-    ...llmResult,
+    specialty: llmResult.specialty,
+    confidence: llmResult.confidence,
+    conditions: llmResult.conditions,
+    guidance: llmResult.guidance,
+    inferenceTime: llmResult.inferenceTime,
     usedSetFit: false,
+    urgency: llmResult.urgency,
+    bodySystem: llmResult.bodySystem,
+    redFlags: llmResult.redFlags,
+    followUpTimeframe: llmResult.followUpTimeframe,
+    suggestedQuestions: llmResult.suggestedQuestions,
   };
 }
 
@@ -87,6 +108,10 @@ export default function ResultsScreen() {
     result!.confidence > 0.8 ? '#16a34a' : 
     result!.confidence > 0.6 ? '#ca8a04' : '#dc2626';
 
+  const urgencyColor = 
+    result!.urgency === 'emergency' ? '#dc2626' : 
+    result!.urgency === 'urgent' ? '#ea580c' : '#16a34a';
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.symptomCard}>
@@ -112,6 +137,25 @@ export default function ResultsScreen() {
           </View>
         </View>
 
+        <View style={styles.urgencyRow}>
+          <Text style={styles.urgencyLabel}>Urgency:</Text>
+          <View style={[styles.urgencyBadge, { backgroundColor: urgencyColor }]}>
+            <Ionicons 
+              name={result!.urgency === 'emergency' ? 'alert-circle' : result!.urgency === 'urgent' ? 'warning' : 'checkmark-circle'} 
+              size={14} 
+              color="#fff" 
+            />
+            <Text style={styles.urgencyText}>
+              {result!.urgency.charAt(0).toUpperCase() + result!.urgency.slice(1)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.timeframeRow}>
+          <Ionicons name="calendar-outline" size={16} color="#64748b" />
+          <Text style={styles.timeframeText}>See provider: {result!.followUpTimeframe}</Text>
+        </View>
+
         <View style={styles.metadataRow}>
           <View style={styles.metadataItem}>
             <Ionicons name={result!.usedSetFit ? 'flash' : 'hardware-chip'} size={14} color="#64748b" />
@@ -125,6 +169,21 @@ export default function ResultsScreen() {
           </View>
         </View>
       </View>
+
+      {result!.redFlags.length > 0 && (
+        <View style={styles.redFlagsCard}>
+          <View style={styles.redFlagsHeader}>
+            <Ionicons name="alert" size={20} color="#dc2626" />
+            <Text style={styles.redFlagsTitle}>Warning Signs</Text>
+          </View>
+          {result!.redFlags.map((flag, i) => (
+            <View key={i} style={styles.redFlagItem}>
+              <Ionicons name="alert-circle-outline" size={16} color="#dc2626" />
+              <Text style={styles.redFlagText}>{flag}</Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       <View style={styles.conditionsCard}>
         <Text style={styles.sectionTitle}>Possible Conditions</Text>
@@ -256,6 +315,69 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 14,
+  },
+  urgencyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  urgencyLabel: {
+    fontSize: 14,
+    color: '#64748b',
+  },
+  urgencyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  urgencyText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  timeframeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+  },
+  timeframeText: {
+    fontSize: 13,
+    color: '#64748b',
+  },
+  redFlagsCard: {
+    backgroundColor: '#fef2f2',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  redFlagsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  redFlagsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#dc2626',
+  },
+  redFlagItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 6,
+  },
+  redFlagText: {
+    fontSize: 14,
+    color: '#7f1d1d',
+    flex: 1,
   },
   metadataRow: {
     flexDirection: 'row',
