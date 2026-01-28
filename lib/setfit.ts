@@ -301,7 +301,7 @@ export async function classifySymptom(symptom: string): Promise<SetFitResult> {
   // Run head model
   const specEmbeddingTensor = new Tensor('float32', specEmbedding, [1, hiddenDim]);
   const specHeadOutput = await specialtyHeadSession.run({
-    input: specEmbeddingTensor,
+    embedding: specEmbeddingTensor,
   });
   
   const specLogits = (Object.values(specHeadOutput)[0] as any)?.data as Float32Array;
@@ -358,7 +358,7 @@ export async function classifySymptom(symptom: string): Promise<SetFitResult> {
   // Run head model
   const condEmbeddingTensor = new Tensor('float32', condEmbedding, [1, hiddenDim]);
   const condHeadOutput = await conditionHeadSession.run({
-    input: condEmbeddingTensor,
+    embedding: condEmbeddingTensor,
   });
   
   const condLogits = (Object.values(condHeadOutput)[0] as any)?.data as Float32Array;
