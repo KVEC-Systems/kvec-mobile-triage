@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
@@ -32,7 +33,24 @@ export default function ChatScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [llmReady, setLlmReady] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Handle keyboard on Android
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Initialize LLM and set up initial context
   useEffect(() => {
@@ -118,8 +136,8 @@ Please provide a helpful, medically accurate response. Be concise but thorough. 
       <Stack.Screen options={{ headerTitle: 'MedGemma AI' }} />
       <KeyboardAvoidingView
         style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 60}
       >
         <View style={styles.statusBar}>
           <View style={[styles.statusDot, { backgroundColor: llmReady ? '#16a34a' : '#dc2626' }]} />
@@ -155,7 +173,10 @@ Please provide a helpful, medically accurate response. Be concise but thorough. 
           )}
         </ScrollView>
 
-        <View style={styles.inputContainer}>
+        <View style={[
+          styles.inputContainer,
+          Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight }
+        ]}>
           <TextInput
             style={styles.input}
             value={input}
