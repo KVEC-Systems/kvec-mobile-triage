@@ -32,14 +32,36 @@ const MODELS = {
   },
   // SetFit ONNX models for fast classification
   specialtyOnnx: {
-    repo: 'ekim1394/symptom-to-specialty-setfit',
-    file: 'symptom-to-specialty.onnx',
-    size: 100000000, // ~100MB (placeholder - update after export)
+    repo: 'ekim1394/setfit-specialty-onnx',
+    file: 'body/model.onnx',
+    size: 90400000, // 90.4 MB
   },
   conditionOnnx: {
-    repo: 'ekim1394/symptom-to-condition-setfit',
-    file: 'symptom-to-condition.onnx',
-    size: 100000000, // ~100MB (placeholder - update after export)
+    repo: 'ekim1394/setfit-condition-onnx',
+    file: 'body/model.onnx',
+    size: 90400000, // ~90 MB (assuming same size)
+  },
+  // Tokenizer files
+  specialtyTokenizer: {
+    repo: 'ekim1394/setfit-specialty-onnx',
+    file: 'body/tokenizer.json',
+    size: 712000, // 712 KB
+  },
+  conditionTokenizer: {
+    repo: 'ekim1394/setfit-condition-onnx',
+    file: 'body/tokenizer.json',
+    size: 712000, // ~712 KB
+  },
+  // Label mappings
+  specialtyLabels: {
+    repo: 'ekim1394/setfit-specialty-onnx',
+    file: 'label_mapping.json',
+    size: 1150, // 1.15 KB
+  },
+  conditionLabels: {
+    repo: 'ekim1394/setfit-condition-onnx',
+    file: 'label_mapping.json',
+    size: 1150, // ~1 KB
   },
 };
 
@@ -232,6 +254,79 @@ export async function hasResumableDownload(): Promise<boolean> {
 }
 
 /**
+ * Download a single file from HuggingFace
+ */
+async function downloadFile(
+  modelKey: keyof typeof MODELS,
+  localFilename: string,
+  onProgress?: (progress: DownloadProgress) => void
+): Promise<boolean> {
+  const url = getDownloadUrl(modelKey);
+  const fileUri = `${documentDirectory}models/${localFilename}`;
+  const dirUri = `${documentDirectory}models`;
+  
+  try {
+    await makeDirectoryAsync(dirUri, { intermediates: true });
+  } catch {
+    // Directory may already exist
+  }
+  
+  // Check if already exists
+  const info = await getInfoAsync(fileUri);
+  if (info.exists) {
+    return true;
+  }
+  
+  console.log(`Downloading ${localFilename} from ${url}`);
+  
+  const downloadResumable = createDownloadResumable(
+    url,
+    fileUri,
+    {},
+    (downloadProgress: DownloadProgressData) => {
+      if (onProgress) {
+        const current = downloadProgress.totalBytesWritten;
+        const total = downloadProgress.totalBytesExpectedToWrite || MODELS[modelKey].size;
+        onProgress({
+          modelName: localFilename,
+          current,
+          total,
+          percent: Math.round((current / total) * 100),
+        });
+      }
+    }
+  );
+  
+  const result = await downloadResumable.downloadAsync();
+  return result?.uri !== undefined;
+}
+
+/**
+ * Download all SetFit models and supporting files
+ */
+export async function downloadSetFitModels(
+  onProgress?: (progress: DownloadProgress) => void
+): Promise<boolean> {
+  try {
+    // Download specialty model and files
+    await downloadFile('specialtyOnnx', 'specialty-model.onnx', onProgress);
+    await downloadFile('specialtyTokenizer', 'specialty-tokenizer.json', onProgress);
+    await downloadFile('specialtyLabels', 'specialty-labels.json', onProgress);
+    
+    // Download condition model and files
+    await downloadFile('conditionOnnx', 'condition-model.onnx', onProgress);
+    await downloadFile('conditionTokenizer', 'condition-tokenizer.json', onProgress);
+    await downloadFile('conditionLabels', 'condition-labels.json', onProgress);
+    
+    console.log('SetFit models download complete');
+    return true;
+  } catch (error) {
+    console.error('Failed to download SetFit models:', error);
+    return false;
+  }
+}
+
+/**
  * Get total download size required (for models not yet downloaded)
  */
 export async function getRemainingDownloadSize(): Promise<number> {
@@ -240,6 +335,14 @@ export async function getRemainingDownloadSize(): Promise<number> {
   
   if (!status.gguf.exists) {
     total += MODELS.gguf.size;
+  }
+  
+  // Add SetFit files if not present
+  if (!status.setfit.specialtyExists) {
+    total += MODELS.specialtyOnnx.size + MODELS.specialtyTokenizer.size + MODELS.specialtyLabels.size;
+  }
+  if (!status.setfit.conditionExists) {
+    total += MODELS.conditionOnnx.size + MODELS.conditionTokenizer.size + MODELS.conditionLabels.size;
   }
   
   return total;

@@ -1,41 +1,39 @@
 /**
  * SetFit Classification Service
  * Fast symptom classification using ONNX Runtime
+ * Downloads and uses tokenizer + label mappings from HuggingFace
  */
 
 import { InferenceSession, Tensor } from 'onnxruntime-react-native';
 import {
   documentDirectory,
   getInfoAsync,
+  readAsStringAsync,
 } from 'expo-file-system/legacy';
 
-// Model paths
+// Model paths in local storage
 const MODELS_DIR = `${documentDirectory}models/`;
-const SPECIALTY_MODEL = 'symptom-to-specialty.onnx';
-const CONDITION_MODEL = 'symptom-to-condition.onnx';
+const SPECIALTY_MODEL = 'specialty-model.onnx';
+const CONDITION_MODEL = 'condition-model.onnx';
+const SPECIALTY_TOKENIZER = 'specialty-tokenizer.json';
+const CONDITION_TOKENIZER = 'condition-tokenizer.json';
+const SPECIALTY_LABELS_FILE = 'specialty-labels.json';
+const CONDITION_LABELS_FILE = 'condition-labels.json';
 
-// Specialty labels (must match training order)
-const SPECIALTY_LABELS = [
-  'Behavioral Health',
-  'Cardiology',
-  'Dermatology',
-  'Gastroenterology',
-  'Neurology',
-  'Oncology',
-  'Orthopedic Surgery',
-  'Pain Management',
-  'Primary Care',
-  'Pulmonology',
-  'Rheumatology',
-  'Sports Medicine',
-  'Urology',
-  'Vascular Medicine',
-  "Women's Health",
-];
-
-// Sessions (lazy init)
+// Sessions and data (lazy init)
 let specialtySession: InferenceSession | null = null;
 let conditionSession: InferenceSession | null = null;
+let specialtyTokenizer: TokenizerData | null = null;
+let conditionTokenizer: TokenizerData | null = null;
+let specialtyLabels: Record<string, string> = {};
+let conditionLabels: Record<string, string> = {};
+
+interface TokenizerData {
+  model: {
+    vocab: Record<string, number>;
+  };
+  added_tokens?: Array<{ id: number; content: string }>;
+}
 
 export interface SetFitResult {
   specialty: string;
@@ -46,18 +44,43 @@ export interface SetFitResult {
 }
 
 /**
- * Check if SetFit models are available
+ * Check if SetFit models and supporting files are available
  */
 export async function areSetFitModelsAvailable(): Promise<boolean> {
   try {
-    const [specialty, condition] = await Promise.all([
-      getInfoAsync(MODELS_DIR + SPECIALTY_MODEL),
-      getInfoAsync(MODELS_DIR + CONDITION_MODEL),
-    ]);
-    return specialty.exists && condition.exists;
+    const files = [
+      SPECIALTY_MODEL,
+      CONDITION_MODEL,
+      SPECIALTY_TOKENIZER,
+      CONDITION_TOKENIZER,
+      SPECIALTY_LABELS_FILE,
+      CONDITION_LABELS_FILE,
+    ];
+    
+    const checks = await Promise.all(
+      files.map(f => getInfoAsync(MODELS_DIR + f))
+    );
+    
+    return checks.every(c => c.exists);
   } catch {
     return false;
   }
+}
+
+/**
+ * Load tokenizer from JSON file
+ */
+async function loadTokenizer(filename: string): Promise<TokenizerData> {
+  const content = await readAsStringAsync(MODELS_DIR + filename);
+  return JSON.parse(content);
+}
+
+/**
+ * Load label mapping from JSON file
+ */
+async function loadLabels(filename: string): Promise<Record<string, string>> {
+  const content = await readAsStringAsync(MODELS_DIR + filename);
+  return JSON.parse(content);
 }
 
 /**
@@ -74,10 +97,29 @@ export async function initializeSetFit(): Promise<boolean> {
     console.log('Loading SetFit models...');
     const startTime = Date.now();
 
-    [specialtySession, conditionSession] = await Promise.all([
+    // Load everything in parallel
+    const [
+      specSession,
+      condSession,
+      specTokenizer,
+      condTokenizer,
+      specLabels,
+      condLabels,
+    ] = await Promise.all([
       InferenceSession.create(MODELS_DIR + SPECIALTY_MODEL),
       InferenceSession.create(MODELS_DIR + CONDITION_MODEL),
+      loadTokenizer(SPECIALTY_TOKENIZER),
+      loadTokenizer(CONDITION_TOKENIZER),
+      loadLabels(SPECIALTY_LABELS_FILE),
+      loadLabels(CONDITION_LABELS_FILE),
     ]);
+
+    specialtySession = specSession;
+    conditionSession = condSession;
+    specialtyTokenizer = specTokenizer;
+    conditionTokenizer = condTokenizer;
+    specialtyLabels = specLabels;
+    conditionLabels = condLabels;
 
     console.log(`SetFit models loaded in ${Date.now() - startTime}ms`);
     return true;
@@ -88,19 +130,70 @@ export async function initializeSetFit(): Promise<boolean> {
 }
 
 /**
- * Simple tokenizer for sentence embeddings
- * Note: For production, load the actual tokenizer vocab
+ * Tokenize text using loaded tokenizer vocab
  */
-function tokenize(text: string): Float32Array {
-  // Placeholder - real implementation needs sentence-transformers tokenizer
-  // For now, we'll need to bundle the tokenizer or use a simpler approach
-  const tokens = text.toLowerCase().split(/\s+/).slice(0, 128);
-  const ids = new Float32Array(128).fill(0);
-  // This is a simplified version - real tokenizer needed
-  tokens.forEach((token, i) => {
-    ids[i] = token.charCodeAt(0) % 30000; // Placeholder hash
-  });
-  return ids;
+function tokenize(text: string, tokenizer: TokenizerData, maxLength = 128): { inputIds: BigInt64Array; attentionMask: BigInt64Array } {
+  const vocab = tokenizer.model.vocab;
+  const unkTokenId = vocab['[UNK]'] ?? 0;
+  const clsTokenId = vocab['[CLS]'] ?? 101;
+  const sepTokenId = vocab['[SEP]'] ?? 102;
+  const padTokenId = vocab['[PAD]'] ?? 0;
+
+  // Simple word-piece tokenization (lowercase, split on whitespace/punctuation)
+  const words = text.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length > 0);
+  
+  // Start with [CLS]
+  const tokenIds: number[] = [clsTokenId];
+  
+  for (const word of words) {
+    // Try to find word in vocab, otherwise use [UNK]
+    const wordId = vocab[word];
+    if (wordId !== undefined) {
+      tokenIds.push(wordId);
+    } else {
+      // Try subword tokenization with ## prefix
+      let remaining = word;
+      let first = true;
+      while (remaining.length > 0) {
+        let found = false;
+        for (let len = remaining.length; len > 0; len--) {
+          const piece = first ? remaining.slice(0, len) : `##${remaining.slice(0, len)}`;
+          if (vocab[piece] !== undefined) {
+            tokenIds.push(vocab[piece]);
+            remaining = remaining.slice(len);
+            found = true;
+            first = false;
+            break;
+          }
+        }
+        if (!found) {
+          tokenIds.push(unkTokenId);
+          break;
+        }
+      }
+    }
+    
+    if (tokenIds.length >= maxLength - 1) break;
+  }
+  
+  // Add [SEP]
+  tokenIds.push(sepTokenId);
+  
+  // Pad to maxLength
+  while (tokenIds.length < maxLength) {
+    tokenIds.push(padTokenId);
+  }
+  
+  // Truncate if too long
+  const finalIds = tokenIds.slice(0, maxLength);
+  
+  // Create attention mask (1 for real tokens, 0 for padding)
+  const attentionMask = finalIds.map(id => id !== padTokenId ? BigInt(1) : BigInt(0));
+  
+  return {
+    inputIds: BigInt64Array.from(finalIds.map(id => BigInt(id))),
+    attentionMask: BigInt64Array.from(attentionMask),
+  };
 }
 
 /**
@@ -109,41 +202,64 @@ function tokenize(text: string): Float32Array {
 export async function classifySymptom(symptom: string): Promise<SetFitResult> {
   const startTime = Date.now();
 
-  if (!specialtySession || !conditionSession) {
+  if (!specialtySession || !conditionSession || !specialtyTokenizer || !conditionTokenizer) {
     throw new Error('SetFit models not initialized');
   }
 
-  // Tokenize input
-  const inputIds = tokenize(symptom);
-  const inputTensor = new Tensor('float32', inputIds, [1, 128]);
+  // Tokenize input for specialty model
+  const specTokenized = tokenize(symptom, specialtyTokenizer);
+  const specInputIds = new Tensor('int64', specTokenized.inputIds, [1, 128]);
+  const specAttentionMask = new Tensor('int64', specTokenized.attentionMask, [1, 128]);
 
   // Run specialty classification
-  const specialtyOutput = await specialtySession.run({ input: inputTensor });
-  const specialtyLogits = specialtyOutput.logits?.data as Float32Array;
+  const specialtyOutput = await specialtySession.run({
+    input_ids: specInputIds,
+    attention_mask: specAttentionMask,
+  });
   
-  // Get top specialty
+  // Get logits (output name may vary - check model)
+  const specLogits = Object.values(specialtyOutput)[0]?.data as Float32Array;
+  
+  // Find top specialty
   let maxIdx = 0;
-  let maxVal = specialtyLogits[0];
-  for (let i = 1; i < specialtyLogits.length; i++) {
-    if (specialtyLogits[i] > maxVal) {
-      maxVal = specialtyLogits[i];
+  let maxVal = specLogits[0];
+  for (let i = 1; i < specLogits.length; i++) {
+    if (specLogits[i] > maxVal) {
+      maxVal = specLogits[i];
       maxIdx = i;
     }
   }
+  
+  // Softmax for confidence
+  const expSum = Array.from(specLogits).reduce((sum, v) => sum + Math.exp(v), 0);
+  const confidence = Math.exp(maxVal) / expSum;
+
+  // Tokenize for condition model
+  const condTokenized = tokenize(symptom, conditionTokenizer);
+  const condInputIds = new Tensor('int64', condTokenized.inputIds, [1, 128]);
+  const condAttentionMask = new Tensor('int64', condTokenized.attentionMask, [1, 128]);
 
   // Run condition classification
-  const conditionOutput = await conditionSession.run({ input: inputTensor });
-  const conditionLogits = conditionOutput.logits?.data as Float32Array;
-
-  // Get top 3 conditions (placeholder - need condition labels)
-  const conditions = ['Condition evaluation needed'];
-  const conditionConfidences = [0.8];
+  const conditionOutput = await conditionSession.run({
+    input_ids: condInputIds,
+    attention_mask: condAttentionMask,
+  });
+  
+  const condLogits = Object.values(conditionOutput)[0]?.data as Float32Array;
+  
+  // Get top 3 conditions
+  const condIndices = Array.from(condLogits)
+    .map((v, i) => ({ v, i }))
+    .sort((a, b) => b.v - a.v)
+    .slice(0, 3);
+  
+  const condExpSum = Array.from(condLogits).reduce((sum, v) => sum + Math.exp(v), 0);
 
   return {
-    specialty: SPECIALTY_LABELS[maxIdx] || 'Primary Care',
-    specialtyConfidence: Math.min(maxVal, 1),
-    conditions,
-    conditionConfidences,
+    specialty: specialtyLabels[String(maxIdx)] || 'Primary Care',
+    specialtyConfidence: confidence,
+    conditions: condIndices.map(c => conditionLabels[String(c.i)] || 'Unknown'),
+    conditionConfidences: condIndices.map(c => Math.exp(c.v) / condExpSum),
     inferenceTime: Date.now() - startTime,
   };
 }
