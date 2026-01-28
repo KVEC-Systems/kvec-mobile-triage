@@ -2,12 +2,14 @@
   "test_cases": 45,
   "fallback": {
     "accuracy": 0.5111111111111111,
-    "avg_inference_ms": 0.00286102294921875
+    "avg_inference_ms": 0.0029087066650390625
   },
   "setfit": {
-    "error": "invalid index to scalar variable."
+    "accuracy": 0.7333333333333333,
+    "avg_inference_ms": 16.15947087605794
   },
   "medgemma": {
-    "error": "404 Client Error. (Request ID: Root=1-697a7584-2db9a27409f95f03674c9287;7ecf4cbf-264b-4f00-89c5-b09bdd8d2784)\n\nEntry Not Found for url: https://huggingface.co/ekim1394/medgemma-4b-iq2_xxs-gguf/resolve/main/medgemma-4b-it-iq2_xxs.gguf."
+    "accuracy": 0.6888888888888889,
+    "avg_inference_ms": 208.41873486836752
   }
 }

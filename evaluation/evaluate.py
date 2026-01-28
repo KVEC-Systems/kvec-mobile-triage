@@ -170,10 +170,29 @@ class SetFitClassifier:
         self.head = ort.InferenceSession(head_path)
         
         with open(labels_path) as f:
-            self.labels = json.load(f)
+            label_data = json.load(f)
+            # The label_mapping.json has nested structure with id2label
+            self.labels = label_data.get("id2label", label_data)
+            
+        # Map SetFit specialty names to our expected specialty names
+        self.name_mapping = {
+            "Heart and Vascular": "Cardiology",
+            "Orthopedics": "Orthopedic Surgery",
+            "Gynecology": "Women's Health",
+            "Neurosurgery": "Neurology",
+            "Rheumatology Immunology and Allergy": "Rheumatology",
+            "Diabetes and Endocrinology": "Primary Care",
+            "Ear Nose and Throat Otolaryngology": "Primary Care",
+            "Audiology": "Primary Care",
+            "Bariatrics": "Primary Care",
+            "Neonatology": "Primary Care",
+            "Ophthalmology": "Primary Care",
+            "Sleep Center": "Primary Care",
+            "Wound Care": "Primary Care",
+        }
             
         self.tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-        print("SetFit loaded!")
+        print(f"SetFit loaded! (labels: {list(self.labels.values())[:5]}...)")
         
     def classify(self, symptom: str) -> dict:
         start = time.time()
@@ -187,21 +206,29 @@ class SetFitClassifier:
             "token_type_ids": np.zeros_like(inputs["input_ids"]).astype(np.int64)
         })
         
-        # Mean pooling
-        hidden = outputs[0]
-        mask = np.expand_dims(inputs["attention_mask"], -1).astype(np.float32)
-        embeddings = np.sum(hidden * mask, axis=1) / np.clip(mask.sum(axis=1), 1e-9, None)
+        # Mean pooling - last_hidden_state is [batch, seq, hidden]
+        hidden = outputs[0]  # [1, 128, 384]
+        mask = inputs["attention_mask"].astype(np.float32)  # [1, 128]
+        mask_expanded = np.expand_dims(mask, -1)  # [1, 128, 1]
+        sum_hidden = np.sum(hidden * mask_expanded, axis=1)  # [1, 384]
+        sum_mask = np.sum(mask, axis=1, keepdims=True)  # [1, 1]
+        embeddings = sum_hidden / np.maximum(sum_mask, 1e-9)  # [1, 384]
         
-        # Run head
-        logits = self.head.run(None, {"embedding": embeddings.astype(np.float32)})[0][0]
-        probs = np.exp(logits) / np.sum(np.exp(logits))
-        idx = int(np.argmax(logits))
+        # Run head - returns [predicted_class, probabilities]
+        head_output = self.head.run(None, {"embedding": embeddings.astype(np.float32)})
+        predicted_class = int(head_output[0][0])  # First output is class index
+        probabilities = head_output[1][0]  # Second output is probabilities
+        confidence = float(probabilities[predicted_class]) if predicted_class < len(probabilities) else 0.9
         
         return {
-            "specialty": self.labels.get(str(idx), "Primary Care"),
-            "confidence": float(probs[idx]),
+            "specialty": self._map_specialty(self.labels.get(str(predicted_class), "Primary Care")),
+            "confidence": confidence,
             "inference_ms": (time.time() - start) * 1000
         }
+    
+    def _map_specialty(self, name: str) -> str:
+        """Map SetFit specialty names to our expected names"""
+        return self.name_mapping.get(name, name)
 
 # =============================================================================
 # MedGemma LLM
@@ -254,14 +281,15 @@ class MedGemmaClassifier:
     def classify(self, symptom: str) -> dict:
         start = time.time()
         
-        prompt = f"""<bos><start_of_turn>user
-Triage: "{symptom}"
-Format: SPECIALTY|CONFIDENCE|URGENCY
+        # Remove <bos> since llama.cpp adds it automatically
+        prompt = f"""<start_of_turn>user
+Medical triage for: "{symptom}"
+What medical specialty should see this patient? Answer with just the specialty name.
 <end_of_turn>
 <start_of_turn>model
 """
         
-        response = self.llm(prompt, max_tokens=60, temperature=0.1, stop=["</s>", "\n\n"])
+        response = self.llm(prompt, max_tokens=30, temperature=0.1, stop=["</s>", "\n", "<end_of_turn>"])
         text = response["choices"][0]["text"].strip()
         
         return {

@@ -5,21 +5,34 @@
 
 // Vertex AI endpoint configuration
 const VERTEX_CONFIG = {
-  endpoint: 'https://mg-endpoint-71d44274-9621-4a14-a5ac-62c4f7c7ce1b.us-central1-77607692213.prediction.vertexai.goog',
-  model: 'medgemma-4b',
+  baseUrl: 'https://mg-endpoint-71d44274-9621-4a14-a5ac-62c4f7c7ce1b.us-central1-77607692213.prediction.vertexai.goog',
+  projectId: '77607692213',
+  endpointId: 'mg-endpoint-71d44274-9621-4a14-a5ac-62c4f7c7ce1b',
+  location: 'us-central1',
   maxTokens: 100,
   temperature: 0.1,
 };
 
+// Service account key (loaded at runtime)
+let accessToken: string | null = null;
+let tokenExpiry: number = 0;
+
 interface VertexResponse {
-  predictions: Array<{
-    content: string;
-  }>;
-  metadata?: {
-    tokenMetadata?: {
-      outputTokenCount?: number;
+  predictions: {
+    choices: Array<{
+      message: {
+        content: string;
+        role: string;
+      };
+      finish_reason: string;
+    }>;
+    usage?: {
+      completion_tokens: number;
+      prompt_tokens: number;
+      total_tokens: number;
     };
   };
+  deployedModelId: string;
 }
 
 /**
@@ -30,16 +43,25 @@ export async function isCloudAvailable(): Promise<boolean> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
     
-    const response = await fetch(VERTEX_CONFIG.endpoint, {
+    const response = await fetch(VERTEX_CONFIG.baseUrl, {
       method: 'HEAD',
       signal: controller.signal,
     });
     
     clearTimeout(timeoutId);
-    return response.ok || response.status === 405; // 405 = method not allowed but reachable
+    return response.ok || response.status === 404 || response.status === 405;
   } catch {
     return false;
   }
+}
+
+/**
+ * Set the access token for authentication
+ * In production, this should come from a service account or OAuth flow
+ */
+export function setAccessToken(token: string, expiresInSeconds: number = 3600): void {
+  accessToken = token;
+  tokenExpiry = Date.now() + (expiresInSeconds * 1000);
 }
 
 /**
@@ -48,23 +70,33 @@ export async function isCloudAvailable(): Promise<boolean> {
 export async function cloudInference(prompt: string): Promise<string> {
   const startTime = Date.now();
   
+  if (!accessToken || Date.now() > tokenExpiry) {
+    throw new Error('No valid access token. Call setAccessToken() first.');
+  }
+  
+  const url = `${VERTEX_CONFIG.baseUrl}/v1/projects/${VERTEX_CONFIG.projectId}/locations/${VERTEX_CONFIG.location}/endpoints/${VERTEX_CONFIG.endpointId}:predict`;
+  
   try {
-    const response = await fetch(`${VERTEX_CONFIG.endpoint}/v1:predict`, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         instances: [
           {
-            prompt: prompt,
+            '@requestFormat': 'chatCompletions',
+            messages: [
+              {
+                role: 'user',
+                content: [{ type: 'text', text: prompt }],
+              },
+            ],
+            max_tokens: VERTEX_CONFIG.maxTokens,
+            temperature: VERTEX_CONFIG.temperature,
           },
         ],
-        parameters: {
-          maxOutputTokens: VERTEX_CONFIG.maxTokens,
-          temperature: VERTEX_CONFIG.temperature,
-          topP: 0.85,
-        },
       }),
     });
 
@@ -79,8 +111,8 @@ export async function cloudInference(prompt: string): Promise<string> {
     
     console.log(`Cloud inference completed in ${inferenceTime}ms`);
     
-    if (data.predictions && data.predictions.length > 0) {
-      return data.predictions[0].content || '';
+    if (data.predictions?.choices?.length > 0) {
+      return data.predictions.choices[0].message.content || '';
     }
     
     throw new Error('No predictions in response');
