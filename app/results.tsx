@@ -26,31 +26,10 @@ interface UnifiedResult {
 let setfitInitPromise: Promise<boolean> | null = null;
 
 async function runTriageInference(symptom: string): Promise<UnifiedResult> {
-  // Try SetFit first (fast classification)
-  if (!setfitInitPromise) {
-    setfitInitPromise = initializeSetFit();
-  }
+  // SetFit disabled - head model outputs ONNX_TYPE_SEQUENCE which onnxruntime-react-native doesn't support
+  // TODO: Re-export head model with zipmap=False option in sklearn-onnx converter
   
-  const setfitReady = await setfitInitPromise;
-  
-  if (setfitReady && isSetFitReady()) {
-    try {
-      console.log('Using SetFit for fast classification...');
-      const result = await classifySymptom(symptom);
-      return {
-        specialty: result.specialty,
-        confidence: result.specialtyConfidence,
-        conditions: result.conditions,
-        guidance: `Recommended evaluation by ${result.specialty} specialist.`,
-        inferenceTime: result.inferenceTime,
-        usedSetFit: true,
-      };
-    } catch (error) {
-      console.error('SetFit classification failed, falling back to LLM:', error);
-    }
-  }
-  
-  // Fallback to LLM
+  // Use LLM for triage
   console.log('Using LLM for triage...');
   const llmResult = await runTriage(symptom);
   return {
