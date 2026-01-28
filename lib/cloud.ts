@@ -1,121 +1,112 @@
 /**
- * Vertex AI Cloud Inference Service
- * Calls MedGemma deployed on Google Cloud for fast inference
+ * Cloud Inference Service
+ * Calls MedGemma via ngrok tunnel to local GPU server
  */
 
-// Vertex AI endpoint configuration
-const VERTEX_CONFIG = {
-  baseUrl: 'https://mg-endpoint-71d44274-9621-4a14-a5ac-62c4f7c7ce1b.us-central1-77607692213.prediction.vertexai.goog',
-  projectId: '77607692213',
-  endpointId: 'mg-endpoint-71d44274-9621-4a14-a5ac-62c4f7c7ce1b',
-  location: 'us-central1',
-  maxTokens: 100,
-  temperature: 0.1,
-};
+// Configurable endpoint - set to your ngrok URL
+let CLOUD_ENDPOINT = '';
 
-// Service account key (loaded at runtime)
-let accessToken: string | null = null;
-let tokenExpiry: number = 0;
-
-interface VertexResponse {
-  predictions: {
-    choices: Array<{
-      message: {
-        content: string;
-        role: string;
-      };
-      finish_reason: string;
-    }>;
-    usage?: {
-      completion_tokens: number;
-      prompt_tokens: number;
-      total_tokens: number;
+interface OpenAIResponse {
+  choices: Array<{
+    message: {
+      content: string;
+      role: string;
     };
+    finish_reason: string;
+  }>;
+  usage?: {
+    completion_tokens: number;
+    prompt_tokens: number;
+    total_tokens: number;
   };
-  deployedModelId: string;
 }
 
 /**
- * Check if cloud inference is available (has network)
+ * Set the cloud inference endpoint URL
+ * @param url - Your ngrok URL, e.g., 'https://abc123.ngrok.io'
+ */
+export function setCloudEndpoint(url: string): void {
+  // Remove trailing slash if present
+  CLOUD_ENDPOINT = url.replace(/\/$/, '');
+  console.log('Cloud endpoint set to:', CLOUD_ENDPOINT);
+}
+
+/**
+ * Get current cloud endpoint
+ */
+export function getCloudEndpoint(): string {
+  return CLOUD_ENDPOINT;
+}
+
+/**
+ * Check if cloud inference is available
  */
 export async function isCloudAvailable(): Promise<boolean> {
+  if (!CLOUD_ENDPOINT) {
+    return false;
+  }
+  
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
     
-    const response = await fetch(VERTEX_CONFIG.baseUrl, {
-      method: 'HEAD',
+    const response = await fetch(`${CLOUD_ENDPOINT}/v1/models`, {
+      method: 'GET',
       signal: controller.signal,
     });
     
     clearTimeout(timeoutId);
-    return response.ok || response.status === 404 || response.status === 405;
+    return response.ok;
   } catch {
     return false;
   }
 }
 
 /**
- * Set the access token for authentication
- * In production, this should come from a service account or OAuth flow
- */
-export function setAccessToken(token: string, expiresInSeconds: number = 3600): void {
-  accessToken = token;
-  tokenExpiry = Date.now() + (expiresInSeconds * 1000);
-}
-
-/**
- * Call Vertex AI endpoint for inference
+ * Call cloud endpoint for inference (OpenAI-compatible API)
  */
 export async function cloudInference(prompt: string): Promise<string> {
   const startTime = Date.now();
   
-  if (!accessToken || Date.now() > tokenExpiry) {
-    throw new Error('No valid access token. Call setAccessToken() first.');
+  if (!CLOUD_ENDPOINT) {
+    throw new Error('Cloud endpoint not configured. Call setCloudEndpoint() first.');
   }
   
-  const url = `${VERTEX_CONFIG.baseUrl}/v1/projects/${VERTEX_CONFIG.projectId}/locations/${VERTEX_CONFIG.location}/endpoints/${VERTEX_CONFIG.endpointId}:predict`;
-  
   try {
-    const response = await fetch(url, {
+    const response = await fetch(`${CLOUD_ENDPOINT}/v1/chat/completions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        instances: [
+        model: 'medgemma',  // Will be ignored by most vLLM setups but needed for compatibility
+        messages: [
           {
-            '@requestFormat': 'chatCompletions',
-            messages: [
-              {
-                role: 'user',
-                content: [{ type: 'text', text: prompt }],
-              },
-            ],
-            max_tokens: VERTEX_CONFIG.maxTokens,
-            temperature: VERTEX_CONFIG.temperature,
+            role: 'user',
+            content: prompt,
           },
         ],
+        max_tokens: 100,
+        temperature: 0.1,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Vertex AI error:', response.status, errorText);
-      throw new Error(`Vertex AI error: ${response.status}`);
+      console.error('Cloud inference error:', response.status, errorText);
+      throw new Error(`Cloud inference error: ${response.status}`);
     }
 
-    const data: VertexResponse = await response.json();
+    const data: OpenAIResponse = await response.json();
     const inferenceTime = Date.now() - startTime;
     
     console.log(`Cloud inference completed in ${inferenceTime}ms`);
     
-    if (data.predictions?.choices?.length > 0) {
-      return data.predictions.choices[0].message.content || '';
+    if (data.choices?.length > 0) {
+      return data.choices[0].message.content || '';
     }
     
-    throw new Error('No predictions in response');
+    throw new Error('No response from model');
   } catch (error) {
     console.error('Cloud inference error:', error);
     throw error;
