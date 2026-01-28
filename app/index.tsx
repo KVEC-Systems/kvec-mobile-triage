@@ -146,9 +146,12 @@ export default function HomeScreen() {
         <View style={styles.examples}>
           <Text style={styles.examplesTitle}>Example symptoms:</Text>
           {[
-            'burning chest pain after eating spicy food',
-            'burns when I pee and I have to go frequently',
-            'I feel sad all the time and can\'t get out of bed',
+            "feeling anxious and can't sleep",
+            "lower back pain radiating to leg",
+            "always thirsty and urinating frequently",
+            "trouble swallowing and food getting stuck",
+            "seeing floaters and flashing lights",
+            "heart racing for no reason",
           ].map((example, i) => (
             <TouchableOpacity 
               key={i} 
