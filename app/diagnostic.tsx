@@ -16,7 +16,7 @@ import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { initializeLLM, sendMessage, generateVisitSummary, type UrgencyLevel } from '../lib/llm';
+import { initializeLLM, sendMessage, generateActionPlan, type UrgencyLevel } from '../lib/llm';
 
 interface DiagnosticAnswer {
   question: string;
@@ -276,14 +276,14 @@ export default function DiagnosticScreen() {
                 </View>
               )}
 
-              {/* Summary Generation Section */}
+              {/* Action Plan Generation Section */}
               {!summaryGenerated ? (
                 <TouchableOpacity 
                   style={styles.generateButton}
                   onPress={async () => {
                     setIsGeneratingSummary(true);
                     try {
-                      const summary = await generateVisitSummary({
+                      const actionPlan = await generateActionPlan({
                         symptom,
                         specialty,
                         conditions,
@@ -292,10 +292,10 @@ export default function DiagnosticScreen() {
                         qaPairs: answers,
                         assessmentSummary: assessment.summary,
                       });
-                      setVisitSummary(summary);
+                      setVisitSummary(actionPlan);
                       setSummaryGenerated(true);
                     } catch (error) {
-                      console.error('Summary generation error:', error);
+                      console.error('Action plan generation error:', error);
                     }
                     setIsGeneratingSummary(false);
                   }}
@@ -304,15 +304,15 @@ export default function DiagnosticScreen() {
                   {isGeneratingSummary ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Ionicons name="document-text" size={18} color="#fff" />
+                    <Ionicons name="list" size={18} color="#fff" />
                   )}
                   <Text style={styles.generateButtonText}>
-                    {isGeneratingSummary ? 'Generating...' : 'Generate Visit Summary'}
+                    {isGeneratingSummary ? 'Creating...' : 'Get Your Action Plan'}
                   </Text>
                 </TouchableOpacity>
               ) : (
                 <View style={styles.generatedSummaryContainer}>
-                  <Text style={styles.generatedSummaryTitle}>Visit Summary</Text>
+                  <Text style={styles.generatedSummaryTitle}>Your Action Plan</Text>
                   <ScrollView 
                     style={styles.summaryScrollView}
                     nestedScrollEnabled
