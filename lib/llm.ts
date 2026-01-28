@@ -607,6 +607,39 @@ export async function enrichWithLLM(
     enrichmentTime: 0,
   };
 
+  // Try cloud inference first (faster)
+  try {
+    console.log('=== TRYING CLOUD INFERENCE ===');
+    const { cloudInference, buildCloudEnrichmentPrompt, isCloudAvailable } = await import('./cloud');
+    
+    const cloudAvailable = await isCloudAvailable();
+    if (cloudAvailable) {
+      const prompt = buildCloudEnrichmentPrompt(symptom, specialty, conditions);
+      const response = await cloudInference(prompt);
+      
+      const enrichmentTime = Date.now() - startTime;
+      console.log('Cloud response:', response);
+      console.log('Cloud enrichment time:', enrichmentTime, 'ms');
+      
+      const parsed = parseEnrichmentResponse(response);
+      
+      // Merge with specialty questions
+      let finalQuestions = [...specialtyQuestions];
+      if (parsed.suggestedQuestions.length > 0) {
+        const llmUnique = parsed.suggestedQuestions.filter(q => 
+          !specialtyQuestions.some(sq => sq.toLowerCase().includes(q.toLowerCase().slice(0, 20)))
+        );
+        finalQuestions = [...specialtyQuestions.slice(0, 3), ...llmUnique.slice(0, 2)];
+      }
+      
+      console.log('=== END CLOUD INFERENCE ===');
+      return { ...parsed, suggestedQuestions: finalQuestions, enrichmentTime };
+    }
+  } catch (error) {
+    console.log('Cloud inference failed, falling back to on-device:', error);
+  }
+
+  // Fall back to on-device inference
   if (!llamaContext) {
     console.log('LLM not available for enrichment, using defaults');
     return { ...defaultResult, enrichmentTime: Date.now() - startTime };
