@@ -66,13 +66,13 @@ const MODELS = {
   // Classification head models
   specialtyHead: {
     repo: 'ekim1394/setfit-specialty-onnx',
-    file: 'head/model_head.onnx',
-    size: 10000, // ~10 KB (small classification head)
+    file: 'model_head.onnx',
+    size: 40000, // ~39 KB
   },
   conditionHead: {
     repo: 'ekim1394/setfit-condition-onnx',
-    file: 'head/model_head.onnx',
-    size: 10000, // ~10 KB
+    file: 'model_head.onnx',
+    size: 40000, // ~39 KB
   },
 };
 

@@ -171,6 +171,10 @@ export async function initializeSetFit(): Promise<boolean> {
     conditionLabels = condLabels;
 
     console.log(`SetFit models loaded in ${Date.now() - startTime}ms`);
+    console.log('Specialty head inputs:', specHeadSession.inputNames);
+    console.log('Specialty head outputs:', specHeadSession.outputNames);
+    console.log('Condition head inputs:', condHeadSession.inputNames);
+    console.log('Condition head outputs:', condHeadSession.outputNames);
     return true;
   } catch (error) {
     console.error('Failed to initialize SetFit:', error);
