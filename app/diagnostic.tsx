@@ -10,11 +10,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  Share,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { initializeLLM, sendMessage, getLLMStatus, type UrgencyLevel } from '../lib/llm';
+import { initializeLLM, sendMessage, generateVisitSummary, type UrgencyLevel } from '../lib/llm';
 
 interface DiagnosticAnswer {
   question: string;
@@ -52,6 +54,9 @@ export default function DiagnosticScreen() {
   const [assessment, setAssessment] = useState<AssessmentUpdate>({});
   const [allQuestions, setAllQuestions] = useState<string[]>(suggestedQuestions);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [visitSummary, setVisitSummary] = useState<string | null>(null);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [summaryGenerated, setSummaryGenerated] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Initialize LLM
@@ -230,6 +235,67 @@ export default function DiagnosticScreen() {
                       <Text style={styles.redFlagText}>{flag}</Text>
                     </View>
                   ))}
+                </View>
+              )}
+
+              {/* Summary Generation Section */}
+              {!summaryGenerated ? (
+                <TouchableOpacity 
+                  style={styles.generateButton}
+                  onPress={async () => {
+                    setIsGeneratingSummary(true);
+                    try {
+                      const summary = await generateVisitSummary({
+                        symptom,
+                        specialty,
+                        conditions,
+                        urgency: assessment.updatedUrgency || initialUrgency,
+                        redFlags: assessment.updatedRedFlags || [],
+                        qaPairs: answers,
+                        assessmentSummary: assessment.summary,
+                      });
+                      setVisitSummary(summary);
+                      setSummaryGenerated(true);
+                    } catch (error) {
+                      console.error('Summary generation error:', error);
+                    }
+                    setIsGeneratingSummary(false);
+                  }}
+                  disabled={isGeneratingSummary}
+                >
+                  {isGeneratingSummary ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Ionicons name="document-text" size={18} color="#fff" />
+                  )}
+                  <Text style={styles.generateButtonText}>
+                    {isGeneratingSummary ? 'Generating...' : 'Generate Visit Summary'}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.summaryActions}>
+                  <TouchableOpacity 
+                    style={styles.actionButton}
+                    onPress={async () => {
+                      if (visitSummary) {
+                        await Clipboard.setStringAsync(visitSummary);
+                      }
+                    }}
+                  >
+                    <Ionicons name="copy" size={18} color="#2563eb" />
+                    <Text style={styles.actionButtonText}>Copy</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.actionButton}
+                    onPress={async () => {
+                      if (visitSummary) {
+                        await Share.share({ message: visitSummary });
+                      }
+                    }}
+                  >
+                    <Ionicons name="share" size={18} color="#2563eb" />
+                    <Text style={styles.actionButtonText}>Share</Text>
+                  </TouchableOpacity>
                 </View>
               )}
 
@@ -519,6 +585,44 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#7f1d1d',
     flex: 1,
+  },
+  generateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#2563eb',
+    borderRadius: 8,
+    width: '100%',
+  },
+  generateButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  summaryActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#eff6ff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2563eb',
+  },
+  actionButtonText: {
+    color: '#2563eb',
+    fontSize: 14,
+    fontWeight: '500',
   },
   doneButton: {
     marginTop: 20,
