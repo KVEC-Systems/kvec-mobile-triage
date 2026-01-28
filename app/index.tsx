@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,11 +13,30 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
+import { checkModelStatus } from '../lib/download';
 
 export default function HomeScreen() {
   const [symptom, setSymptom] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingModel, setIsCheckingModel] = useState(true);
+
+  // Check if model exists on mount, redirect to download if not
+  useEffect(() => {
+    async function checkModel() {
+      try {
+        const status = await checkModelStatus();
+        if (!status.gguf.exists) {
+          router.replace('/download');
+        }
+      } catch (error) {
+        console.error('Error checking model status:', error);
+      } finally {
+        setIsCheckingModel(false);
+      }
+    }
+    checkModel();
+  }, []);
 
   const handleSubmit = useCallback(async () => {
     if (!symptom.trim()) return;
@@ -45,6 +64,16 @@ export default function HomeScreen() {
       // In production, use @react-native-voice/voice
     }
   }, [isListening]);
+
+  // Show loading while checking model status
+  if (isCheckingModel) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2563eb" />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -126,6 +155,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#64748b',
+    marginTop: 12,
   },
   scrollContent: {
     padding: 20,
