@@ -10,7 +10,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { initializeLLM, sendMessage, getLLMStatus } from '../lib/llm';
 
@@ -113,73 +114,68 @@ Please provide a helpful, medically accurate response. Be concise but thorough. 
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1e293b" />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>MedGemma AI</Text>
-          <View style={styles.statusBadge}>
-            <View style={[styles.statusDot, { backgroundColor: llmReady ? '#16a34a' : '#dc2626' }]} />
-            <Text style={styles.statusText}>{llmReady ? 'Online' : 'Offline'}</Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.messagesContainer}
-        contentContainerStyle={styles.messagesContent}
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Stack.Screen options={{ headerTitle: 'MedGemma AI' }} />
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        {messages.map((message, index) => (
-          <View
-            key={index}
-            style={[
-              styles.messageBubble,
-              message.role === 'user' ? styles.userMessage : styles.assistantMessage,
-            ]}
-          >
-            <Text style={[
-              styles.messageText,
-              message.role === 'user' ? styles.userMessageText : styles.assistantMessageText,
-            ]}>
-              {message.content}
-            </Text>
-          </View>
-        ))}
-        {isSending && (
-          <View style={[styles.messageBubble, styles.assistantMessage]}>
-            <ActivityIndicator size="small" color="#2563eb" />
-            <Text style={styles.typingText}>Thinking...</Text>
-          </View>
-        )}
-      </ScrollView>
+        <View style={styles.statusBar}>
+          <View style={[styles.statusDot, { backgroundColor: llmReady ? '#16a34a' : '#dc2626' }]} />
+          <Text style={styles.statusText}>{llmReady ? 'Online' : 'Offline'}</Text>
+        </View>
 
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          value={input}
-          onChangeText={setInput}
-          placeholder="Ask about your symptoms..."
-          placeholderTextColor="#94a3b8"
-          multiline
-          maxLength={500}
-          editable={!isSending}
-        />
-        <TouchableOpacity
-          style={[styles.sendButton, (!input.trim() || isSending) && styles.sendButtonDisabled]}
-          onPress={handleSend}
-          disabled={!input.trim() || isSending}
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.messagesContainer}
+          contentContainerStyle={styles.messagesContent}
         >
-          <Ionicons name="send" size={20} color="#fff" />
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+          {messages.map((message, index) => (
+            <View
+              key={index}
+              style={[
+                styles.messageBubble,
+                message.role === 'user' ? styles.userMessage : styles.assistantMessage,
+              ]}
+            >
+              <Text style={[
+                styles.messageText,
+                message.role === 'user' ? styles.userMessageText : styles.assistantMessageText,
+              ]}>
+                {message.content}
+              </Text>
+            </View>
+          ))}
+          {isSending && (
+            <View style={[styles.messageBubble, styles.assistantMessage]}>
+              <ActivityIndicator size="small" color="#2563eb" />
+              <Text style={styles.typingText}>Thinking...</Text>
+            </View>
+          )}
+        </ScrollView>
+
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.input}
+            value={input}
+            onChangeText={setInput}
+            placeholder="Ask about your symptoms..."
+            placeholderTextColor="#94a3b8"
+            multiline
+            maxLength={500}
+            editable={!isSending}
+          />
+          <TouchableOpacity
+            style={[styles.sendButton, (!input.trim() || isSending) && styles.sendButtonDisabled]}
+            onPress={handleSend}
+            disabled={!input.trim() || isSending}
+          >
+            <Ionicons name="send" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -187,6 +183,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  keyboardView: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -205,32 +204,15 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginTop: 4,
   },
-  header: {
+  statusBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
-    paddingTop: Platform.OS === 'ios' ? 60 : 16,
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerContent: {
-    flex: 1,
-    marginLeft: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1e293b',
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
   },
   statusDot: {
     width: 8,
