@@ -56,6 +56,18 @@ export interface TriageResult {
 }
 
 /**
+ * Enrichment result from LLM for structured fields only
+ */
+export interface EnrichmentResult {
+  urgency: UrgencyLevel;
+  bodySystem: string;
+  redFlags: string[];
+  followUpTimeframe: string;
+  suggestedQuestions: string[];
+  enrichmentTime: number;
+}
+
+/**
  * Check if the model file exists in the app's document directory
  */
 export async function isModelAvailable(): Promise<boolean> {
@@ -482,3 +494,108 @@ export async function sendMessage(prompt: string): Promise<string> {
     throw error;
   }
 }
+
+/**
+ * Enrich SetFit classification results with LLM-generated structured fields
+ * This is the second stage of hybrid inference
+ */
+export async function enrichWithLLM(
+  symptom: string,
+  specialty: string,
+  conditions: string[]
+): Promise<EnrichmentResult> {
+  const startTime = Date.now();
+  
+  // Default result for failures
+  const defaultResult: EnrichmentResult = {
+    urgency: 'routine',
+    bodySystem: 'general',
+    redFlags: [],
+    followUpTimeframe: 'within 1 week',
+    suggestedQuestions: ['How long have you had these symptoms?', 'Have you tried any treatments?'],
+    enrichmentTime: 0,
+  };
+
+  if (!llamaContext) {
+    console.log('LLM not available for enrichment, using defaults');
+    return { ...defaultResult, enrichmentTime: Date.now() - startTime };
+  }
+
+  try {
+    // Compact enrichment prompt - specialty/conditions already known
+    const prompt = `<bos><start_of_turn>user
+Patient: "${symptom}"
+Specialty: ${specialty}
+Conditions: ${conditions.join(', ')}
+
+Given this triage, provide clinical assessment:
+1. URGENCY: [emergency/urgent/routine]
+2. BODY_SYSTEM: [affected body system]
+3. RED_FLAGS: [warning signs or "none"]
+4. TIMEFRAME: [when to see provider]
+5. QUESTIONS: [2-3 follow-up questions]
+<end_of_turn>
+<start_of_turn>model
+1. URGENCY:`;
+
+    const response = await llamaContext.completion({
+      prompt,
+      n_predict: 100,      // Short response needed
+      temperature: 0.1,    // Deterministic
+      top_p: 0.85,
+      stop: ['</s>', '\n\n', '6.'],
+    });
+
+    const enrichmentTime = Date.now() - startTime;
+    const parsed = parseEnrichmentResponse(response.text);
+    
+    return { ...parsed, enrichmentTime };
+  } catch (error) {
+    console.error('LLM enrichment error:', error);
+    return { ...defaultResult, enrichmentTime: Date.now() - startTime };
+  }
+}
+
+/**
+ * Parse enrichment response from LLM
+ */
+function parseEnrichmentResponse(response: string): Omit<EnrichmentResult, 'enrichmentTime'> {
+  const lines = response.split('\n');
+  
+  let urgency: UrgencyLevel = 'routine';
+  let bodySystem = 'general';
+  let redFlags: string[] = [];
+  let followUpTimeframe = 'within 1 week';
+  let suggestedQuestions: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    if (/URGENCY:/i.test(trimmed)) {
+      const value = trimmed.replace(/.*URGENCY:\s*/i, '').toLowerCase();
+      if (value.includes('emergency')) urgency = 'emergency';
+      else if (value.includes('urgent')) urgency = 'urgent';
+      else urgency = 'routine';
+    } else if (/BODY_SYSTEM:/i.test(trimmed)) {
+      bodySystem = trimmed.replace(/.*BODY_SYSTEM:\s*/i, '').trim().toLowerCase() || 'general';
+    } else if (/RED_FLAGS:/i.test(trimmed)) {
+      const value = trimmed.replace(/.*RED_FLAGS:\s*/i, '').trim();
+      if (value.toLowerCase() !== 'none' && value.length > 0) {
+        redFlags = value.split(',').map(f => f.trim()).filter(f => f.length > 0);
+      }
+    } else if (/TIMEFRAME:/i.test(trimmed)) {
+      followUpTimeframe = trimmed.replace(/.*TIMEFRAME:\s*/i, '').trim() || 'within 1 week';
+    } else if (/QUESTIONS:/i.test(trimmed)) {
+      const value = trimmed.replace(/.*QUESTIONS:\s*/i, '');
+      suggestedQuestions = value.split(/[,;]/).map(q => q.trim()).filter(q => q.length > 0);
+    }
+  }
+
+  // Fallback for empty questions
+  if (suggestedQuestions.length === 0) {
+    suggestedQuestions = ['How long have you had these symptoms?', 'Have you tried any treatments?'];
+  }
+
+  return { urgency, bodySystem, redFlags, followUpTimeframe, suggestedQuestions };
+}
+

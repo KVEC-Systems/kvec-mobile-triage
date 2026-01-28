@@ -10,7 +10,7 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { initializeSetFit, classifySymptom, isSetFitReady, type SetFitResult } from '../lib/setfit';
-import { runTriage, type TriageResult, type UrgencyLevel } from '../lib/llm';
+import { runTriage, enrichWithLLM, initializeLLM, type TriageResult, type UrgencyLevel, type EnrichmentResult } from '../lib/llm';
 
 // Result type that works for both SetFit and LLM results
 interface UnifiedResult {
@@ -26,10 +26,32 @@ interface UnifiedResult {
   redFlags: string[];
   followUpTimeframe: string;
   suggestedQuestions: string[];
+  // Enrichment state
+  isEnriching?: boolean;
+  enrichmentTime?: number;
 }
 
 // Initialize SetFit on module load
 let setfitInitPromise: Promise<boolean> | null = null;
+
+// Initial result from SetFit (before enrichment)
+function createInitialSetFitResult(result: SetFitResult): UnifiedResult {
+  return {
+    specialty: result.specialty,
+    confidence: result.specialtyConfidence,
+    conditions: result.conditions,
+    guidance: `Recommended evaluation by ${result.specialty} specialist.`,
+    inferenceTime: result.inferenceTime,
+    usedSetFit: true,
+    // Placeholder values - will be enriched by LLM
+    urgency: 'routine' as UrgencyLevel,
+    bodySystem: 'general',
+    redFlags: [],
+    followUpTimeframe: 'within 1 week',
+    suggestedQuestions: ['How long have you had these symptoms?', 'Have you tried any treatments?'],
+    isEnriching: true,  // Flag that enrichment is pending
+  };
+}
 
 async function runTriageInference(symptom: string): Promise<UnifiedResult> {
   // Try SetFit first (fast classification)
@@ -43,26 +65,13 @@ async function runTriageInference(symptom: string): Promise<UnifiedResult> {
     try {
       console.log('Using SetFit for fast classification...');
       const result = await classifySymptom(symptom);
-      return {
-        specialty: result.specialty,
-        confidence: result.specialtyConfidence,
-        conditions: result.conditions,
-        guidance: `Recommended evaluation by ${result.specialty} specialist.`,
-        inferenceTime: result.inferenceTime,
-        usedSetFit: true,
-        // SetFit doesn't provide these, use sensible defaults
-        urgency: 'routine' as UrgencyLevel,
-        bodySystem: 'general',
-        redFlags: [],
-        followUpTimeframe: 'within 1 week',
-        suggestedQuestions: ['How long have you had these symptoms?', 'Have you tried any treatments?'],
-      };
+      return createInitialSetFitResult(result);
     } catch (error) {
       console.error('SetFit classification failed, falling back to LLM:', error);
     }
   }
   
-  // Fallback to LLM
+  // Fallback to LLM (full inference, no enrichment needed)
   console.log('Using LLM for triage...');
   const llmResult = await runTriage(symptom);
   return {
@@ -77,6 +86,7 @@ async function runTriageInference(symptom: string): Promise<UnifiedResult> {
     redFlags: llmResult.redFlags,
     followUpTimeframe: llmResult.followUpTimeframe,
     suggestedQuestions: llmResult.suggestedQuestions,
+    isEnriching: false,
   };
 }
 
@@ -87,9 +97,29 @@ export default function ResultsScreen() {
 
   useEffect(() => {
     if (symptom) {
+      // Phase 1: Fast classification
       runTriageInference(symptom).then((res) => {
         setResult(res);
         setIsLoading(false);
+        
+        // Phase 2: LLM enrichment (if SetFit was used)
+        if (res.usedSetFit && res.isEnriching) {
+          // Initialize LLM if needed, then enrich
+          initializeLLM().then(() => {
+            enrichWithLLM(symptom, res.specialty, res.conditions).then((enrichment) => {
+              setResult(prev => prev ? {
+                ...prev,
+                urgency: enrichment.urgency,
+                bodySystem: enrichment.bodySystem,
+                redFlags: enrichment.redFlags,
+                followUpTimeframe: enrichment.followUpTimeframe,
+                suggestedQuestions: enrichment.suggestedQuestions,
+                enrichmentTime: enrichment.enrichmentTime,
+                isEnriching: false,
+              } : prev);
+            });
+          });
+        }
       });
     }
   }, [symptom]);
@@ -111,6 +141,8 @@ export default function ResultsScreen() {
   const urgencyColor = 
     result!.urgency === 'emergency' ? '#dc2626' : 
     result!.urgency === 'urgent' ? '#ea580c' : '#16a34a';
+
+  const isEnriching = result!.isEnriching;
 
   return (
     <ScrollView style={styles.container}>
@@ -139,33 +171,47 @@ export default function ResultsScreen() {
 
         <View style={styles.urgencyRow}>
           <Text style={styles.urgencyLabel}>Urgency:</Text>
-          <View style={[styles.urgencyBadge, { backgroundColor: urgencyColor }]}>
-            <Ionicons 
-              name={result!.urgency === 'emergency' ? 'alert-circle' : result!.urgency === 'urgent' ? 'warning' : 'checkmark-circle'} 
-              size={14} 
-              color="#fff" 
-            />
-            <Text style={styles.urgencyText}>
-              {result!.urgency.charAt(0).toUpperCase() + result!.urgency.slice(1)}
-            </Text>
-          </View>
+          {isEnriching ? (
+            <View style={styles.enrichingBadge}>
+              <ActivityIndicator size="small" color="#64748b" />
+              <Text style={styles.enrichingText}>Analyzing...</Text>
+            </View>
+          ) : (
+            <View style={[styles.urgencyBadge, { backgroundColor: urgencyColor }]}>
+              <Ionicons 
+                name={result!.urgency === 'emergency' ? 'alert-circle' : result!.urgency === 'urgent' ? 'warning' : 'checkmark-circle'} 
+                size={14} 
+                color="#fff" 
+              />
+              <Text style={styles.urgencyText}>
+                {result!.urgency.charAt(0).toUpperCase() + result!.urgency.slice(1)}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.timeframeRow}>
           <Ionicons name="calendar-outline" size={16} color="#64748b" />
-          <Text style={styles.timeframeText}>See provider: {result!.followUpTimeframe}</Text>
+          {isEnriching ? (
+            <Text style={styles.enrichingText}>Determining timeframe...</Text>
+          ) : (
+            <Text style={styles.timeframeText}>See provider: {result!.followUpTimeframe}</Text>
+          )}
         </View>
 
         <View style={styles.metadataRow}>
           <View style={styles.metadataItem}>
             <Ionicons name={result!.usedSetFit ? 'flash' : 'hardware-chip'} size={14} color="#64748b" />
             <Text style={styles.metadataText}>
-              {result!.usedSetFit ? 'SetFit Fast' : 'Fallback'}
+              {result!.usedSetFit ? 'SetFit Fast' : 'LLM'}
             </Text>
           </View>
           <View style={styles.metadataItem}>
             <Ionicons name="time-outline" size={14} color="#64748b" />
-            <Text style={styles.metadataText}>{result!.inferenceTime}ms</Text>
+            <Text style={styles.metadataText}>
+              {result!.inferenceTime}ms
+              {result!.enrichmentTime ? ` + ${result!.enrichmentTime}ms` : ''}
+            </Text>
           </View>
         </View>
       </View>
@@ -348,6 +394,20 @@ const styles = StyleSheet.create({
   timeframeText: {
     fontSize: 13,
     color: '#64748b',
+  },
+  enrichingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9',
+  },
+  enrichingText: {
+    fontSize: 13,
+    color: '#94a3b8',
+    fontStyle: 'italic',
   },
   redFlagsCard: {
     backgroundColor: '#fef2f2',
