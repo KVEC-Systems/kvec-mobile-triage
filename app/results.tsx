@@ -5,8 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { initializeSetFit, classifySymptom, isSetFitReady, type SetFitResult } from '../lib/setfit';
 import { runTriage, type TriageResult } from '../lib/llm';
@@ -142,6 +143,23 @@ export default function ResultsScreen() {
         </View>
         <Text style={styles.guidanceText}>{result!.guidance}</Text>
       </View>
+
+      <TouchableOpacity
+        style={styles.chatButton}
+        onPress={() => {
+          router.push({
+            pathname: '/chat',
+            params: {
+              symptom,
+              specialty: result!.specialty,
+              conditions: result!.conditions.join(', '),
+            },
+          });
+        }}
+      >
+        <Ionicons name="chatbubbles" size={20} color="#fff" />
+        <Text style={styles.chatButtonText}>Chat with MedGemma AI</Text>
+      </TouchableOpacity>
 
       <View style={styles.disclaimer}>
         <Ionicons name="warning" size={16} color="#ca8a04" />
@@ -296,6 +314,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1e293b',
     lineHeight: 22,
+  },
+  chatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#2563eb',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  chatButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   disclaimer: {
     flexDirection: 'row',

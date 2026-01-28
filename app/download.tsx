@@ -91,7 +91,7 @@ export default function DownloadScreen() {
 
       // Then optionally download GGUF model (for follow-up chat, ~1.4GB)
       // For now, skip GGUF download to get user to fast triage quickly
-      // await downloadGGUFModel((prog) => setProgress(prog));
+      await downloadGGUFModel((prog) => setProgress(prog));
 
       setStatus('complete');
       setTimeout(() => router.replace('/'), 1000);

@@ -380,3 +380,26 @@ export function getLLMStatus(): {
     error: initError?.message ?? null,
   };
 }
+
+/**
+ * Send a freeform message to the LLM and get a response
+ */
+export async function sendMessage(prompt: string): Promise<string> {
+  if (!llamaContext) {
+    throw new Error('LLM not initialized');
+  }
+
+  try {
+    const result = await llamaContext.completion({
+      prompt,
+      n_predict: 200,
+      temperature: 0.3,
+      stop: ['</s>', 'User:', 'Patient:'],
+    });
+
+    return result.text.trim();
+  } catch (error) {
+    console.error('LLM completion error:', error);
+    throw error;
+  }
+}

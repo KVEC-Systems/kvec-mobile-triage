@@ -2,6 +2,7 @@
   "name": "medstar-triage",
   "version": "1.0.0",
   "main": "expo-router/entry",
+  "onnxruntimeExtensionsEnabled": "true",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",

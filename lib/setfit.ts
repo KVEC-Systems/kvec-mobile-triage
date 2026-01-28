@@ -1,10 +1,10 @@
 /**
  * SetFit Classification Service
  * Fast symptom classification using ONNX Runtime
- * Downloads and uses tokenizer + label mappings from HuggingFace
+ * Note: ONNX Runtime currently has native module issues - this is a placeholder
+ * that gracefully degrades to LLM fallback
  */
 
-import { InferenceSession, Tensor } from 'onnxruntime-react-native';
 import {
   documentDirectory,
   getInfoAsync,
@@ -20,9 +20,14 @@ const CONDITION_TOKENIZER = 'condition-tokenizer.json';
 const SPECIALTY_LABELS_FILE = 'specialty-labels.json';
 const CONDITION_LABELS_FILE = 'condition-labels.json';
 
+// ONNX Runtime is dynamically loaded to avoid crash on import
+let InferenceSession: any = null;
+let Tensor: any = null;
+let onnxAvailable = false;
+
 // Sessions and data (lazy init)
-let specialtySession: InferenceSession | null = null;
-let conditionSession: InferenceSession | null = null;
+let specialtySession: any = null;
+let conditionSession: any = null;
 let specialtyTokenizer: TokenizerData | null = null;
 let conditionTokenizer: TokenizerData | null = null;
 let specialtyLabels: Record<string, string> = {};
@@ -41,6 +46,26 @@ export interface SetFitResult {
   conditions: string[];
   conditionConfidences: number[];
   inferenceTime: number;
+}
+
+/**
+ * Try to load ONNX Runtime dynamically
+ */
+async function loadOnnxRuntime(): Promise<boolean> {
+  if (onnxAvailable) return true;
+  
+  try {
+    const onnx = require('onnxruntime-react-native');
+    InferenceSession = onnx.InferenceSession;
+    Tensor = onnx.Tensor;
+    onnxAvailable = true;
+    console.log('ONNX Runtime loaded successfully');
+    return true;
+  } catch (error) {
+    console.warn('ONNX Runtime not available:', error);
+    onnxAvailable = false;
+    return false;
+  }
 }
 
 /**
@@ -88,9 +113,16 @@ async function loadLabels(filename: string): Promise<Record<string, string>> {
  */
 export async function initializeSetFit(): Promise<boolean> {
   try {
+    // First check if ONNX runtime is available
+    const onnxLoaded = await loadOnnxRuntime();
+    if (!onnxLoaded) {
+      console.log('ONNX Runtime not available, SetFit disabled');
+      return false;
+    }
+
     const available = await areSetFitModelsAvailable();
     if (!available) {
-      console.log('SetFit models not available');
+      console.log('SetFit models not downloaded');
       return false;
     }
 
@@ -218,7 +250,7 @@ export async function classifySymptom(symptom: string): Promise<SetFitResult> {
   });
   
   // Get logits (output name may vary - check model)
-  const specLogits = Object.values(specialtyOutput)[0]?.data as Float32Array;
+  const specLogits = (Object.values(specialtyOutput)[0] as any)?.data as Float32Array;
   
   // Find top specialty
   let maxIdx = 0;
@@ -245,7 +277,7 @@ export async function classifySymptom(symptom: string): Promise<SetFitResult> {
     attention_mask: condAttentionMask,
   });
   
-  const condLogits = Object.values(conditionOutput)[0]?.data as Float32Array;
+  const condLogits = (Object.values(conditionOutput)[0] as any)?.data as Float32Array;
   
   // Get top 3 conditions
   const condIndices = Array.from(condLogits)
@@ -268,5 +300,5 @@ export async function classifySymptom(symptom: string): Promise<SetFitResult> {
  * Check if SetFit is ready
  */
 export function isSetFitReady(): boolean {
-  return specialtySession !== null && conditionSession !== null;
+  return onnxAvailable && specialtySession !== null && conditionSession !== null;
 }
