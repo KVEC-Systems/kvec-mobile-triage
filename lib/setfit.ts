@@ -105,7 +105,12 @@ async function loadTokenizer(filename: string): Promise<TokenizerData> {
  */
 async function loadLabels(filename: string): Promise<Record<string, string>> {
   const content = await readAsStringAsync(MODELS_DIR + filename);
-  return JSON.parse(content);
+  const parsed = JSON.parse(content);
+  // Handle both formats: {id2label: {...}} and flat {0: "label", ...}
+  if (parsed.id2label) {
+    return parsed.id2label;
+  }
+  return parsed;
 }
 
 /**
@@ -258,6 +263,10 @@ export async function classifySymptom(symptom: string): Promise<SetFitResult> {
   // Get logits (output name may vary - check model)
   const specLogits = (Object.values(specialtyOutput)[0] as any)?.data as Float32Array;
   
+  console.log('Specialty output keys:', Object.keys(specialtyOutput));
+  console.log('Specialty logits length:', specLogits?.length);
+  console.log('Specialty labels keys:', Object.keys(specialtyLabels).slice(0, 5));
+  
   // Find top specialty
   let maxIdx = 0;
   let maxVal = specLogits[0];
@@ -267,6 +276,9 @@ export async function classifySymptom(symptom: string): Promise<SetFitResult> {
       maxIdx = i;
     }
   }
+  
+  console.log('Top specialty idx:', maxIdx, 'value:', maxVal);
+  console.log('Specialty label lookup:', specialtyLabels[String(maxIdx)]);
   
   // Softmax for confidence
   const expSum = Array.from(specLogits).reduce((sum, v) => sum + Math.exp(v), 0);
@@ -287,11 +299,17 @@ export async function classifySymptom(symptom: string): Promise<SetFitResult> {
   
   const condLogits = (Object.values(conditionOutput)[0] as any)?.data as Float32Array;
   
+  console.log('Condition logits length:', condLogits?.length);
+  console.log('Condition labels keys:', Object.keys(conditionLabels).slice(0, 5));
+  
   // Get top 3 conditions
   const condIndices = Array.from(condLogits)
     .map((v, i) => ({ v, i }))
     .sort((a, b) => b.v - a.v)
     .slice(0, 3);
+  
+  console.log('Top 3 condition indices:', condIndices);
+  console.log('Condition label lookups:', condIndices.map(c => conditionLabels[String(c.i)]));
   
   const condExpSum = Array.from(condLogits).reduce((sum, v) => sum + Math.exp(v), 0);
 

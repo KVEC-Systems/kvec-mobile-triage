@@ -26,32 +26,11 @@ interface UnifiedResult {
 let setfitInitPromise: Promise<boolean> | null = null;
 
 async function runTriageInference(symptom: string): Promise<UnifiedResult> {
-  // Try SetFit first (fast, ~100ms)
-  if (!setfitInitPromise) {
-    setfitInitPromise = initializeSetFit();
-  }
+  // SetFit disabled - ONNX export doesn't include classification head
+  // TODO: Re-export SetFit models with full pipeline
   
-  const setfitReady = await setfitInitPromise;
-  
-  if (setfitReady && isSetFitReady()) {
-    try {
-      console.log('Using SetFit for fast classification...');
-      const result = await classifySymptom(symptom);
-      return {
-        specialty: result.specialty,
-        confidence: result.specialtyConfidence,
-        conditions: result.conditions,
-        guidance: `Recommended evaluation by ${result.specialty} specialist.`,
-        inferenceTime: result.inferenceTime,
-        usedSetFit: true,
-      };
-    } catch (error) {
-      console.error('SetFit classification failed, falling back to LLM:', error);
-    }
-  }
-  
-  // Fallback to LLM or keyword-based triage
-  console.log('Using LLM/fallback for triage...');
+  // Use LLM for triage
+  console.log('Using LLM for triage...');
   const llmResult = await runTriage(symptom);
   return {
     ...llmResult,
