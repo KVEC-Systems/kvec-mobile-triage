@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.medstar.triage",
+      "bundleIdentifier": "com.KVEC.triage",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -25,7 +25,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1a365d"
       },
-      "package": "com.medstar.triage",
+      "package": "com.KVEC.triage",
       "edgeToEdgeEnabled": true
     },
     "web": {

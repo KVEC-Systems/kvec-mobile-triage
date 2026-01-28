@@ -95,7 +95,7 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Ionicons name="medical" size={64} color="#2563eb" />
-          <Text style={styles.title}>MedStar Triage</Text>
+          <Text style={styles.title}>KVEC Triage</Text>
           <Text style={styles.subtitle}>
             {isLoadingModel ? 'Loading AI model...' : 'Offline symptom-to-specialty routing'}
           </Text>

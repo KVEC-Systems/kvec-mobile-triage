@@ -164,7 +164,7 @@ export async function initializeSetFit(): Promise<boolean> {
 /**
  * Tokenize text using loaded tokenizer vocab
  */
-function tokenize(text: string, tokenizer: TokenizerData, maxLength = 128): { inputIds: BigInt64Array; attentionMask: BigInt64Array } {
+function tokenize(text: string, tokenizer: TokenizerData, maxLength = 128): { inputIds: BigInt64Array; attentionMask: BigInt64Array; tokenTypeIds: BigInt64Array } {
   const vocab = tokenizer.model.vocab;
   const unkTokenId = vocab['[UNK]'] ?? 0;
   const clsTokenId = vocab['[CLS]'] ?? 101;
@@ -222,9 +222,13 @@ function tokenize(text: string, tokenizer: TokenizerData, maxLength = 128): { in
   // Create attention mask (1 for real tokens, 0 for padding)
   const attentionMask = finalIds.map(id => id !== padTokenId ? BigInt(1) : BigInt(0));
   
+  // token_type_ids are all zeros for single sentence
+  const tokenTypeIds = new Array(maxLength).fill(BigInt(0));
+  
   return {
     inputIds: BigInt64Array.from(finalIds.map(id => BigInt(id))),
     attentionMask: BigInt64Array.from(attentionMask),
+    tokenTypeIds: BigInt64Array.from(tokenTypeIds),
   };
 }
 
@@ -242,11 +246,13 @@ export async function classifySymptom(symptom: string): Promise<SetFitResult> {
   const specTokenized = tokenize(symptom, specialtyTokenizer);
   const specInputIds = new Tensor('int64', specTokenized.inputIds, [1, 128]);
   const specAttentionMask = new Tensor('int64', specTokenized.attentionMask, [1, 128]);
+  const specTokenTypeIds = new Tensor('int64', specTokenized.tokenTypeIds, [1, 128]);
 
   // Run specialty classification
   const specialtyOutput = await specialtySession.run({
     input_ids: specInputIds,
     attention_mask: specAttentionMask,
+    token_type_ids: specTokenTypeIds,
   });
   
   // Get logits (output name may vary - check model)
@@ -270,11 +276,13 @@ export async function classifySymptom(symptom: string): Promise<SetFitResult> {
   const condTokenized = tokenize(symptom, conditionTokenizer);
   const condInputIds = new Tensor('int64', condTokenized.inputIds, [1, 128]);
   const condAttentionMask = new Tensor('int64', condTokenized.attentionMask, [1, 128]);
+  const condTokenTypeIds = new Tensor('int64', condTokenized.tokenTypeIds, [1, 128]);
 
   // Run condition classification
   const conditionOutput = await conditionSession.run({
     input_ids: condInputIds,
     attention_mask: condAttentionMask,
+    token_type_ids: condTokenTypeIds,
   });
   
   const condLogits = (Object.values(conditionOutput)[0] as any)?.data as Float32Array;

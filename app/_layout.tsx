@@ -18,7 +18,7 @@ export default function RootLayout() {
         />
         <Stack.Screen 
           name="index" 
-          options={{ title: 'MedStar Triage' }} 
+          options={{ title: 'KVEC Triage' }} 
         />
         <Stack.Screen 
           name="results" 

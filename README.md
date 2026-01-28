@@ -1,4 +1,4 @@
-# MedStar Triage
+# KVEC Triage
 
 Offline-first mobile app for symptom-to-specialty routing using on-device AI inference.
 

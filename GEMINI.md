@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-MedStar Triage is an **offline-first** React Native app using Expo that routes patient symptoms to medical specialties via on-device LLM inference.
+KVEC Triage is an **offline-first** React Native app using Expo that routes patient symptoms to medical specialties via on-device LLM inference.
 
 ## Tech Stack
 

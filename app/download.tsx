@@ -119,7 +119,7 @@ export default function DownloadScreen() {
       <View style={styles.container}>
         <Ionicons name="checkmark-circle" size={80} color="#16a34a" />
         <Text style={styles.title}>Model Ready!</Text>
-        <Text style={styles.subtitle}>Launching MedStar Triage...</Text>
+        <Text style={styles.subtitle}>Launching KVEC Triage...</Text>
       </View>
     );
   }
@@ -132,7 +132,7 @@ export default function DownloadScreen() {
 
       <Text style={styles.title}>Download AI Model</Text>
       <Text style={styles.subtitle}>
-        MedStar Triage uses an on-device AI model for{'\n'}intelligent symptom routing.
+        KVEC Triage uses an on-device AI model for{'\n'}intelligent symptom routing.
       </Text>
 
       {status === 'ready' && (
