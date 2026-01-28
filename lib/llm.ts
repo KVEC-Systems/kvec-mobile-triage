@@ -171,6 +171,9 @@ export async function runTriage(symptom: string): Promise<TriageResult> {
   try {
     // Build prompt for MedGemma
     const prompt = buildTriagePrompt(symptom);
+    console.log('=== LLM TRIAGE ===');
+    console.log('Input symptom:', symptom);
+    console.log('Prompt:', prompt.substring(0, 200) + '...');
     
     // Run inference
     const response = await llamaContext.completion({
@@ -182,9 +185,14 @@ export async function runTriage(symptom: string): Promise<TriageResult> {
     });
 
     const inferenceTime = Date.now() - startTime;
+    console.log('Raw LLM response:', response.text);
+    console.log('Inference time:', inferenceTime, 'ms');
     
     // Parse the response
     const result = parseTriageResponse(response.text, symptom);
+    console.log('Parsed result:', JSON.stringify(result, null, 2));
+    console.log('=== END TRIAGE ===');
+    
     return {
       ...result,
       inferenceTime,
@@ -538,6 +546,10 @@ Given this triage, provide clinical assessment:
 <start_of_turn>model
 1. URGENCY:`;
 
+    console.log('=== LLM ENRICHMENT ===');
+    console.log('Enriching for:', specialty, '| Conditions:', conditions.join(', '));
+    console.log('Prompt:', prompt.substring(0, 150) + '...');
+
     const response = await llamaContext.completion({
       prompt,
       n_predict: 100,      // Short response needed
@@ -547,7 +559,12 @@ Given this triage, provide clinical assessment:
     });
 
     const enrichmentTime = Date.now() - startTime;
+    console.log('Raw enrichment response:', response.text);
+    
     const parsed = parseEnrichmentResponse(response.text);
+    console.log('Parsed enrichment:', JSON.stringify(parsed, null, 2));
+    console.log('Enrichment time:', enrichmentTime, 'ms');
+    console.log('=== END ENRICHMENT ===');
     
     return { ...parsed, enrichmentTime };
   } catch (error) {

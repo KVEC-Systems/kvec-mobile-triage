@@ -82,6 +82,44 @@ export default function DiagnosticScreen() {
 
   const currentQuestion = allQuestions[currentQuestionIndex];
 
+  // Generate options based on question type
+  const getOptionsForQuestion = (question: string): string[] => {
+    const q = question.toLowerCase();
+    
+    // Duration questions
+    if (q.includes('how long') || q.includes('when did') || q.includes('started')) {
+      return ['Less than a day', 'A few days', '1-2 weeks', 'Several weeks', 'More than a month'];
+    }
+    // Severity questions
+    if (q.includes('severe') || q.includes('pain level') || q.includes('how bad') || q.includes('rate')) {
+      return ['Mild - barely noticeable', 'Moderate - uncomfortable', 'Severe - very painful', 'Extreme - unbearable'];
+    }
+    // Yes/No questions
+    if (q.includes('have you') || q.includes('do you') || q.includes('are you') || q.includes('is there') || q.includes('did you')) {
+      return ['Yes', 'No', 'Not sure'];
+    }
+    // Treatment questions
+    if (q.includes('treatment') || q.includes('medication') || q.includes('tried')) {
+      return ['No treatment yet', 'Over-the-counter meds', 'Prescription medication', 'Home remedies', 'Multiple treatments'];
+    }
+    // Frequency questions
+    if (q.includes('how often') || q.includes('frequency') || q.includes('regularly')) {
+      return ['Constantly', 'Several times a day', 'Daily', 'A few times a week', 'Occasionally'];
+    }
+    // Location questions
+    if (q.includes('where') || q.includes('location') || q.includes('which area')) {
+      return ['Head/Face', 'Chest', 'Abdomen', 'Back', 'Arms/Hands', 'Legs/Feet', 'Multiple areas'];
+    }
+    // Trigger questions
+    if (q.includes('trigger') || q.includes('worse') || q.includes('better') || q.includes('affects')) {
+      return ['Activity/Movement', 'Eating/Drinking', 'Stress', 'Weather', 'Time of day', 'Nothing specific'];
+    }
+    // Default options
+    return ['Yes', 'No', 'Sometimes', 'Not applicable'];
+  };
+
+  const currentOptions = currentQuestion ? getOptionsForQuestion(currentQuestion) : [];
+
   const handleSubmitAnswer = useCallback(async () => {
     if (!currentAnswer.trim() || isProcessing) return;
 
@@ -273,29 +311,38 @@ export default function DiagnosticScreen() {
                   </Text>
                 </TouchableOpacity>
               ) : (
-                <View style={styles.summaryActions}>
-                  <TouchableOpacity 
-                    style={styles.actionButton}
-                    onPress={async () => {
-                      if (visitSummary) {
-                        await Clipboard.setStringAsync(visitSummary);
-                      }
-                    }}
+                <View style={styles.generatedSummaryContainer}>
+                  <Text style={styles.generatedSummaryTitle}>Visit Summary</Text>
+                  <ScrollView 
+                    style={styles.summaryScrollView}
+                    nestedScrollEnabled
                   >
-                    <Ionicons name="copy" size={18} color="#2563eb" />
-                    <Text style={styles.actionButtonText}>Copy</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.actionButton}
-                    onPress={async () => {
-                      if (visitSummary) {
-                        await Share.share({ message: visitSummary });
-                      }
-                    }}
-                  >
-                    <Ionicons name="share" size={18} color="#2563eb" />
-                    <Text style={styles.actionButtonText}>Share</Text>
-                  </TouchableOpacity>
+                    <Text style={styles.generatedSummaryText}>{visitSummary}</Text>
+                  </ScrollView>
+                  <View style={styles.summaryActions}>
+                    <TouchableOpacity 
+                      style={styles.actionButton}
+                      onPress={async () => {
+                        if (visitSummary) {
+                          await Clipboard.setStringAsync(visitSummary);
+                        }
+                      }}
+                    >
+                      <Ionicons name="copy" size={18} color="#2563eb" />
+                      <Text style={styles.actionButtonText}>Copy</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.actionButton}
+                      onPress={async () => {
+                        if (visitSummary) {
+                          await Share.share({ message: visitSummary });
+                        }
+                      }}
+                    >
+                      <Ionicons name="share" size={18} color="#2563eb" />
+                      <Text style={styles.actionButtonText}>Share</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
 
@@ -314,33 +361,52 @@ export default function DiagnosticScreen() {
           )}
         </ScrollView>
 
-        {/* Input area */}
+        {/* Options area */}
         {!isComplete && (
-          <View style={[
-            styles.inputContainer,
-            Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight }
-          ]}>
-            <TextInput
-              style={styles.input}
-              value={currentAnswer}
-              onChangeText={setCurrentAnswer}
-              placeholder="Type your answer..."
-              placeholderTextColor="#94a3b8"
-              multiline
-              maxLength={500}
-              editable={!isProcessing}
-            />
-            <TouchableOpacity
-              style={[styles.sendButton, (!currentAnswer.trim() || isProcessing) && styles.sendButtonDisabled]}
-              onPress={handleSubmitAnswer}
-              disabled={!currentAnswer.trim() || isProcessing}
-            >
-              {isProcessing ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Ionicons name="send" size={20} color="#fff" />
-              )}
-            </TouchableOpacity>
+          <View style={styles.optionsContainer}>
+            {isProcessing ? (
+              <View style={styles.processingState}>
+                <ActivityIndicator size="small" color="#2563eb" />
+                <Text style={styles.processingText}>Processing...</Text>
+              </View>
+            ) : (
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.optionsScroll}
+              >
+                {currentOptions.map((option, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.optionButton}
+                    onPress={() => {
+                      setCurrentAnswer(option);
+                      // Auto-submit after a brief delay
+                      setTimeout(() => {
+                        const syntheticAnswer = option;
+                        setCurrentAnswer('');
+                        // Inline submit logic
+                        const newAnswer: DiagnosticAnswer = {
+                          question: currentQuestion,
+                          answer: syntheticAnswer,
+                        };
+                        const updatedAnswers = [...answers, newAnswer];
+                        setAnswers(updatedAnswers);
+                        
+                        const nextIndex = currentQuestionIndex + 1;
+                        if (nextIndex < allQuestions.length) {
+                          setCurrentQuestionIndex(nextIndex);
+                        } else {
+                          setIsComplete(true);
+                        }
+                      }, 100);
+                    }}
+                  >
+                    <Text style={styles.optionText}>{option}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
           </View>
         )}
       </KeyboardAvoidingView>
@@ -619,6 +685,34 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2563eb',
   },
+  generatedSummaryContainer: {
+    marginTop: 16,
+    width: '100%',
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    overflow: 'hidden',
+  },
+  generatedSummaryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1e293b',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    backgroundColor: '#fff',
+  },
+  summaryScrollView: {
+    maxHeight: 200,
+  },
+  generatedSummaryText: {
+    padding: 12,
+    fontSize: 12,
+    fontFamily: 'monospace',
+    color: '#334155',
+    lineHeight: 18,
+  },
   actionButtonText: {
     color: '#2563eb',
     fontSize: 14,
@@ -666,5 +760,40 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#94a3b8',
+  },
+  optionsContainer: {
+    padding: 12,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  optionsScroll: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingRight: 12,
+  },
+  optionButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#eff6ff',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#2563eb',
+  },
+  optionText: {
+    color: '#2563eb',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  processingState: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 8,
+  },
+  processingText: {
+    color: '#64748b',
+    fontSize: 14,
   },
 });
