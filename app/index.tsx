@@ -14,7 +14,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import { checkModelStatus } from '../lib/download';
-import { initializeLLM } from '../lib/llm';
+import { initializeSetFit } from '../lib/setfit';
 
 export default function HomeScreen() {
   const [symptom, setSymptom] = useState('');
@@ -23,21 +23,24 @@ export default function HomeScreen() {
   const [isCheckingModel, setIsCheckingModel] = useState(true);
   const [isLoadingModel, setIsLoadingModel] = useState(false);
 
-  // Check if model exists on mount, redirect to download if not, then pre-load model
+  // Check if SetFit models exist on mount, redirect to download if not, then pre-load
   useEffect(() => {
     async function checkAndLoadModel() {
       try {
         const status = await checkModelStatus();
-        if (!status.gguf.exists) {
+        const setfitReady = status.setfit.specialtyExists && status.setfit.conditionExists;
+        
+        if (!setfitReady) {
           router.replace('/download');
           return;
         }
-        // Model exists - pre-load it in background
+        
+        // SetFit models exist - pre-load them in background
         setIsCheckingModel(false);
         setIsLoadingModel(true);
-        await initializeLLM();
+        await initializeSetFit();
       } catch (error) {
-        console.error('Error checking/loading model:', error);
+        console.error('Error checking/loading SetFit models:', error);
       } finally {
         setIsCheckingModel(false);
         setIsLoadingModel(false);

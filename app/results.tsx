@@ -8,26 +8,60 @@ import {
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { runTriage, initializeLLM, getLLMStatus, type TriageResult } from '../lib/llm';
+import { initializeSetFit, classifySymptom, isSetFitReady, type SetFitResult } from '../lib/setfit';
+import { runTriage, type TriageResult } from '../lib/llm';
 
-// Initialize LLM on module load
-let llmInitPromise: Promise<boolean> | null = null;
+// Result type that works for both SetFit and LLM results
+interface UnifiedResult {
+  specialty: string;
+  confidence: number;
+  conditions: string[];
+  guidance: string;
+  inferenceTime: number;
+  usedSetFit: boolean;
+}
 
-async function runTriageInference(symptom: string): Promise<TriageResult> {
-  // Ensure LLM is initialized (or at least attempted)
-  if (!llmInitPromise) {
-    llmInitPromise = initializeLLM();
+// Initialize SetFit on module load
+let setfitInitPromise: Promise<boolean> | null = null;
+
+async function runTriageInference(symptom: string): Promise<UnifiedResult> {
+  // Try SetFit first (fast, ~100ms)
+  if (!setfitInitPromise) {
+    setfitInitPromise = initializeSetFit();
   }
-  await llmInitPromise;
-
-  // Run the triage (will use LLM if available, fallback otherwise)
-  return runTriage(symptom);
+  
+  const setfitReady = await setfitInitPromise;
+  
+  if (setfitReady && isSetFitReady()) {
+    try {
+      console.log('Using SetFit for fast classification...');
+      const result = await classifySymptom(symptom);
+      return {
+        specialty: result.specialty,
+        confidence: result.specialtyConfidence,
+        conditions: result.conditions,
+        guidance: `Recommended evaluation by ${result.specialty} specialist.`,
+        inferenceTime: result.inferenceTime,
+        usedSetFit: true,
+      };
+    } catch (error) {
+      console.error('SetFit classification failed, falling back to LLM:', error);
+    }
+  }
+  
+  // Fallback to LLM or keyword-based triage
+  console.log('Using LLM/fallback for triage...');
+  const llmResult = await runTriage(symptom);
+  return {
+    ...llmResult,
+    usedSetFit: false,
+  };
 }
 
 export default function ResultsScreen() {
   const { symptom } = useLocalSearchParams<{ symptom: string }>();
   const [isLoading, setIsLoading] = useState(true);
-  const [result, setResult] = useState<TriageResult | null>(null);
+  const [result, setResult] = useState<UnifiedResult | null>(null);
 
   useEffect(() => {
     if (symptom) {
@@ -43,7 +77,7 @@ export default function ResultsScreen() {
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#2563eb" />
         <Text style={styles.loadingText}>Analyzing symptoms...</Text>
-        <Text style={styles.loadingSubtext}>Running on-device inference</Text>
+        <Text style={styles.loadingSubtext}>Running on-device classification</Text>
       </View>
     );
   }
@@ -79,9 +113,9 @@ export default function ResultsScreen() {
 
         <View style={styles.metadataRow}>
           <View style={styles.metadataItem}>
-            <Ionicons name={result!.usedLLM ? 'hardware-chip' : 'flash'} size={14} color="#64748b" />
+            <Ionicons name={result!.usedSetFit ? 'flash' : 'hardware-chip'} size={14} color="#64748b" />
             <Text style={styles.metadataText}>
-              {result!.usedLLM ? 'MedGemma LLM' : 'Quick Match'}
+              {result!.usedSetFit ? 'SetFit Fast' : 'Fallback'}
             </Text>
           </View>
           <View style={styles.metadataItem}>

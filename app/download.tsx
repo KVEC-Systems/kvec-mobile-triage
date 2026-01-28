@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   checkModelStatus,
   downloadGGUFModel,
+  downloadSetFitModels,
   getRemainingDownloadSize,
   formatBytes,
   pauseDownload,
@@ -48,8 +49,11 @@ export default function DownloadScreen() {
     async function check() {
       const modelStatus = await checkModelStatus();
       
-      if (modelStatus.gguf.exists) {
-        // Model already exists, go to main screen
+      // SetFit models are required (fast triage), GGUF is optional (follow-up chat)
+      const setfitReady = modelStatus.setfit.specialtyExists && modelStatus.setfit.conditionExists;
+      
+      if (setfitReady) {
+        // SetFit models exist, can proceed to main screen
         setStatus('complete');
         setTimeout(() => router.replace('/'), 500);
       } else {
@@ -59,7 +63,6 @@ export default function DownloadScreen() {
         // Check if there's a download to resume
         const hasResumable = await hasResumableDownload();
         if (hasResumable) {
-          // Auto-resume interrupted download
           setStatus('ready');
         } else {
           setStatus('ready');
@@ -74,17 +77,24 @@ export default function DownloadScreen() {
     setErrorMessage(null);
 
     try {
-      const success = await downloadGGUFModel((prog) => {
+      // First download SetFit models (required, ~180MB total)
+      setProgress({ modelName: 'SetFit Classification Models', current: 0, total: 180000000, percent: 0 });
+      const setfitSuccess = await downloadSetFitModels((prog) => {
         setProgress(prog);
       });
 
-      if (success) {
-        setStatus('complete');
-        setTimeout(() => router.replace('/'), 1000);
-      } else {
+      if (!setfitSuccess) {
         setStatus('error');
-        setErrorMessage('Download failed. Please check your internet connection and try again.');
+        setErrorMessage('Failed to download classification models. Please try again.');
+        return;
       }
+
+      // Then optionally download GGUF model (for follow-up chat, ~1.4GB)
+      // For now, skip GGUF download to get user to fast triage quickly
+      // await downloadGGUFModel((prog) => setProgress(prog));
+
+      setStatus('complete');
+      setTimeout(() => router.replace('/'), 1000);
     } catch (error) {
       // Download was interrupted (likely app went to background)
       setStatus('ready');
