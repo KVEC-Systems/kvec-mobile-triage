@@ -135,8 +135,8 @@ export async function initializeLLM(): Promise<boolean> {
 
     llamaContext = await initLlama({
       model: modelFile.uri,
-      n_ctx: 512,         // Minimal context for speed
-      n_batch: 512,       // Batch size for prompt processing
+      n_ctx: 256,         // Minimal context for speed
+      n_batch: 256,       // Smaller batch for faster processing
       n_threads: 8,       // Max CPU threads
       n_gpu_layers: 99,   // Offload all layers to GPU
       use_mlock: true,    // Lock model in memory
@@ -205,29 +205,15 @@ export async function runTriage(symptom: string): Promise<TriageResult> {
 }
 
 /**
- * Build the prompt for MedGemma triage
+ * Build the prompt for MedGemma triage - COMPACT version for speed
  */
 function buildTriagePrompt(symptom: string): string {
-  // Structured prompt for comprehensive triage output
   return `<bos><start_of_turn>user
-You are a medical triage assistant. Route symptoms to the appropriate specialty.
-
-Specialties: ${SPECIALTIES.join(', ')}
-
-Patient symptoms: "${symptom}"
-
-Respond in this EXACT format:
-1. SPECIALTY: [one specialty from the list]
-2. CONFIDENCE: [high/medium/low]
-3. URGENCY: [emergency/urgent/routine]
-4. BODY_SYSTEM: [affected system, e.g. urinary, cardiovascular, neurological, musculoskeletal, dermatological, gastrointestinal, respiratory, psychiatric]
-5. RED_FLAGS: [comma-separated warning signs, or "none"]
-6. CONDITIONS: [comma-separated possible conditions]
-7. TIMEFRAME: [when to be seen, e.g. "immediately", "within 24 hours", "within 1 week"]
-8. QUESTIONS: [2-3 follow-up questions to ask]
+Triage: "${symptom}"
+Format: SPECIALTY|CONFIDENCE|URGENCY|BODY_SYSTEM|RED_FLAGS|CONDITIONS|TIMEFRAME|QUESTIONS
 <end_of_turn>
 <start_of_turn>model
-1. SPECIALTY:`;
+`;
 }
 
 /**
@@ -530,32 +516,23 @@ export async function enrichWithLLM(
   }
 
   try {
-    // Compact enrichment prompt - specialty/conditions already known
+    // Compact enrichment prompt
     const prompt = `<bos><start_of_turn>user
-Patient: "${symptom}"
-Specialty: ${specialty}
-Conditions: ${conditions.join(', ')}
-
-Given this triage, provide clinical assessment:
-1. URGENCY: [emergency/urgent/routine]
-2. BODY_SYSTEM: [affected body system]
-3. RED_FLAGS: [warning signs or "none"]
-4. TIMEFRAME: [when to see provider]
-5. QUESTIONS: [2-3 follow-up questions]
+${symptom}|${specialty}|${conditions.join(',')}
+URGENCY|RED_FLAGS|TIMEFRAME|QUESTIONS
 <end_of_turn>
 <start_of_turn>model
-1. URGENCY:`;
+`;
 
     console.log('=== LLM ENRICHMENT ===');
-    console.log('Enriching for:', specialty, '| Conditions:', conditions.join(', '));
-    console.log('Prompt:', prompt.substring(0, 150) + '...');
+    console.log('Enriching for:', specialty);
 
     const response = await llamaContext.completion({
       prompt,
-      n_predict: 100,      // Short response needed
+      n_predict: 60,       // Reduced for speed
       temperature: 0.1,    // Deterministic
       top_p: 0.85,
-      stop: ['</s>', '\n\n', '6.'],
+      stop: ['</s>', '\n\n'],
     });
 
     const enrichmentTime = Date.now() - startTime;
