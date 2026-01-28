@@ -115,11 +115,12 @@ export async function initializeLLM(): Promise<boolean> {
 
     llamaContext = await initLlama({
       model: modelFile.uri,
-      n_ctx: 1024,        // Reduced context for faster inference
+      n_ctx: 512,         // Minimal context for speed
       n_batch: 512,       // Batch size for prompt processing
-      n_threads: 6,       // CPU threads for parallel processing
-      n_gpu_layers: 32,   // GPU acceleration (Metal on iOS, Vulkan on Android)
+      n_threads: 8,       // Max CPU threads
+      n_gpu_layers: 99,   // Offload all layers to GPU
       use_mlock: true,    // Lock model in memory
+      flash_attn: true,   // Flash attention for speed (if supported)
     });
 
     const loadTime = Date.now() - startTime;
@@ -154,10 +155,10 @@ export async function runTriage(symptom: string): Promise<TriageResult> {
     // Run inference
     const response = await llamaContext.completion({
       prompt,
-      n_predict: 150,      // Reduced for faster inference (output is structured)
-      temperature: 0.2,    // Lower for more deterministic triage
-      top_p: 0.9,
-      stop: ['</s>', '\n\n\n', '5.'],  // Stop after guidance section
+      n_predict: 80,       // Minimal tokens for structured output
+      temperature: 0.1,    // Very low for deterministic output
+      top_p: 0.85,
+      stop: ['</s>', '\n\n', '4.'],  // Stop after conditions
     });
 
     const inferenceTime = Date.now() - startTime;
@@ -179,22 +180,18 @@ export async function runTriage(symptom: string): Promise<TriageResult> {
  * Build the prompt for MedGemma triage
  */
 function buildTriagePrompt(symptom: string): string {
+  // Compact prompt for faster inference
   return `<bos><start_of_turn>user
-You are a medical triage assistant. Based on the patient's symptoms, determine the most appropriate medical specialty to route them to.
+Route symptoms to specialty. Options: ${SPECIALTIES.join(', ')}
 
-Available specialties: ${SPECIALTIES.join(', ')}
+Symptoms: "${symptom}"
 
-Patient symptoms: "${symptom}"
-
-Respond with:
-1. SPECIALTY: [specialty name]
+Respond:
+1. SPECIALTY: [name]
 2. CONFIDENCE: [high/medium/low]
-3. CONDITIONS: [comma-separated list of possible conditions]
-4. GUIDANCE: [brief clinical guidance for triage]
+3. CONDITIONS: [list]
 <end_of_turn>
 <start_of_turn>model
-Based on the symptoms described, here is my triage assessment:
-
 1. SPECIALTY:`;
 }
 
