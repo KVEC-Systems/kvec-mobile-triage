@@ -19,6 +19,8 @@ const SPECIALTY_TOKENIZER = 'specialty-tokenizer.json';
 const CONDITION_TOKENIZER = 'condition-tokenizer.json';
 const SPECIALTY_LABELS_FILE = 'specialty-labels.json';
 const CONDITION_LABELS_FILE = 'condition-labels.json';
+const SPECIALTY_HEAD = 'specialty-head.onnx';
+const CONDITION_HEAD = 'condition-head.onnx';
 
 // ONNX Runtime is dynamically loaded to avoid crash on import
 let InferenceSession: any = null;
@@ -28,6 +30,8 @@ let onnxAvailable = false;
 // Sessions and data (lazy init)
 let specialtySession: any = null;
 let conditionSession: any = null;
+let specialtyHeadSession: any = null;
+let conditionHeadSession: any = null;
 let specialtyTokenizer: TokenizerData | null = null;
 let conditionTokenizer: TokenizerData | null = null;
 let specialtyLabels: Record<string, string> = {};
@@ -80,6 +84,8 @@ export async function areSetFitModelsAvailable(): Promise<boolean> {
       CONDITION_TOKENIZER,
       SPECIALTY_LABELS_FILE,
       CONDITION_LABELS_FILE,
+      SPECIALTY_HEAD,
+      CONDITION_HEAD,
     ];
     
     const checks = await Promise.all(
@@ -138,6 +144,8 @@ export async function initializeSetFit(): Promise<boolean> {
     const [
       specSession,
       condSession,
+      specHeadSession,
+      condHeadSession,
       specTokenizer,
       condTokenizer,
       specLabels,
@@ -145,6 +153,8 @@ export async function initializeSetFit(): Promise<boolean> {
     ] = await Promise.all([
       InferenceSession.create(MODELS_DIR + SPECIALTY_MODEL),
       InferenceSession.create(MODELS_DIR + CONDITION_MODEL),
+      InferenceSession.create(MODELS_DIR + SPECIALTY_HEAD),
+      InferenceSession.create(MODELS_DIR + CONDITION_HEAD),
       loadTokenizer(SPECIALTY_TOKENIZER),
       loadTokenizer(CONDITION_TOKENIZER),
       loadLabels(SPECIALTY_LABELS_FILE),
@@ -153,6 +163,8 @@ export async function initializeSetFit(): Promise<boolean> {
 
     specialtySession = specSession;
     conditionSession = condSession;
+    specialtyHeadSession = specHeadSession;
+    conditionHeadSession = condHeadSession;
     specialtyTokenizer = specTokenizer;
     conditionTokenizer = condTokenizer;
     specialtyLabels = specLabels;
@@ -243,29 +255,54 @@ function tokenize(text: string, tokenizer: TokenizerData, maxLength = 128): { in
 export async function classifySymptom(symptom: string): Promise<SetFitResult> {
   const startTime = Date.now();
 
-  if (!specialtySession || !conditionSession || !specialtyTokenizer || !conditionTokenizer) {
+  if (!specialtySession || !conditionSession || !specialtyHeadSession || !conditionHeadSession || !specialtyTokenizer || !conditionTokenizer) {
     throw new Error('SetFit models not initialized');
   }
 
+  // === SPECIALTY CLASSIFICATION ===
   // Tokenize input for specialty model
   const specTokenized = tokenize(symptom, specialtyTokenizer);
   const specInputIds = new Tensor('int64', specTokenized.inputIds, [1, 128]);
   const specAttentionMask = new Tensor('int64', specTokenized.attentionMask, [1, 128]);
   const specTokenTypeIds = new Tensor('int64', specTokenized.tokenTypeIds, [1, 128]);
 
-  // Run specialty classification
+  // Run body model to get embeddings
   const specialtyOutput = await specialtySession.run({
     input_ids: specInputIds,
     attention_mask: specAttentionMask,
     token_type_ids: specTokenTypeIds,
   });
   
-  // Get logits (output name may vary - check model)
-  const specLogits = (Object.values(specialtyOutput)[0] as any)?.data as Float32Array;
+  // Get last_hidden_state: [1, 128, 384]
+  const specHiddenState = (Object.values(specialtyOutput)[0] as any)?.data as Float32Array;
+  const hiddenDim = 384; // MiniLM hidden dimension
+  const seqLen = 128;
   
-  console.log('Specialty output keys:', Object.keys(specialtyOutput));
+  // Mean pooling with attention mask
+  const specEmbedding = new Float32Array(hiddenDim);
+  let tokenCount = 0;
+  for (let t = 0; t < seqLen; t++) {
+    const attnVal = specTokenized.attentionMask[t];
+    if (attnVal === BigInt(1)) {
+      tokenCount++;
+      for (let d = 0; d < hiddenDim; d++) {
+        specEmbedding[d] += specHiddenState[t * hiddenDim + d];
+      }
+    }
+  }
+  for (let d = 0; d < hiddenDim; d++) {
+    specEmbedding[d] /= tokenCount || 1;
+  }
+  
+  // Run head model
+  const specEmbeddingTensor = new Tensor('float32', specEmbedding, [1, hiddenDim]);
+  const specHeadOutput = await specialtyHeadSession.run({
+    input: specEmbeddingTensor,
+  });
+  
+  const specLogits = (Object.values(specHeadOutput)[0] as any)?.data as Float32Array;
+  console.log('Specialty head output keys:', Object.keys(specHeadOutput));
   console.log('Specialty logits length:', specLogits?.length);
-  console.log('Specialty labels keys:', Object.keys(specialtyLabels).slice(0, 5));
   
   // Find top specialty
   let maxIdx = 0;
@@ -277,30 +314,51 @@ export async function classifySymptom(symptom: string): Promise<SetFitResult> {
     }
   }
   
-  console.log('Top specialty idx:', maxIdx, 'value:', maxVal);
-  console.log('Specialty label lookup:', specialtyLabels[String(maxIdx)]);
+  console.log('Top specialty idx:', maxIdx, 'label:', specialtyLabels[String(maxIdx)]);
   
   // Softmax for confidence
   const expSum = Array.from(specLogits).reduce((sum, v) => sum + Math.exp(v), 0);
   const confidence = Math.exp(maxVal) / expSum;
 
-  // Tokenize for condition model
+  // === CONDITION CLASSIFICATION ===
   const condTokenized = tokenize(symptom, conditionTokenizer);
   const condInputIds = new Tensor('int64', condTokenized.inputIds, [1, 128]);
   const condAttentionMask = new Tensor('int64', condTokenized.attentionMask, [1, 128]);
   const condTokenTypeIds = new Tensor('int64', condTokenized.tokenTypeIds, [1, 128]);
 
-  // Run condition classification
+  // Run body model
   const conditionOutput = await conditionSession.run({
     input_ids: condInputIds,
     attention_mask: condAttentionMask,
     token_type_ids: condTokenTypeIds,
   });
   
-  const condLogits = (Object.values(conditionOutput)[0] as any)?.data as Float32Array;
+  const condHiddenState = (Object.values(conditionOutput)[0] as any)?.data as Float32Array;
   
+  // Mean pooling
+  const condEmbedding = new Float32Array(hiddenDim);
+  tokenCount = 0;
+  for (let t = 0; t < seqLen; t++) {
+    const attnVal = condTokenized.attentionMask[t];
+    if (attnVal === BigInt(1)) {
+      tokenCount++;
+      for (let d = 0; d < hiddenDim; d++) {
+        condEmbedding[d] += condHiddenState[t * hiddenDim + d];
+      }
+    }
+  }
+  for (let d = 0; d < hiddenDim; d++) {
+    condEmbedding[d] /= tokenCount || 1;
+  }
+  
+  // Run head model
+  const condEmbeddingTensor = new Tensor('float32', condEmbedding, [1, hiddenDim]);
+  const condHeadOutput = await conditionHeadSession.run({
+    input: condEmbeddingTensor,
+  });
+  
+  const condLogits = (Object.values(condHeadOutput)[0] as any)?.data as Float32Array;
   console.log('Condition logits length:', condLogits?.length);
-  console.log('Condition labels keys:', Object.keys(conditionLabels).slice(0, 5));
   
   // Get top 3 conditions
   const condIndices = Array.from(condLogits)
@@ -308,8 +366,7 @@ export async function classifySymptom(symptom: string): Promise<SetFitResult> {
     .sort((a, b) => b.v - a.v)
     .slice(0, 3);
   
-  console.log('Top 3 condition indices:', condIndices);
-  console.log('Condition label lookups:', condIndices.map(c => conditionLabels[String(c.i)]));
+  console.log('Top 3 conditions:', condIndices.map(c => conditionLabels[String(c.i)]));
   
   const condExpSum = Array.from(condLogits).reduce((sum, v) => sum + Math.exp(v), 0);
 
@@ -326,5 +383,5 @@ export async function classifySymptom(symptom: string): Promise<SetFitResult> {
  * Check if SetFit is ready
  */
 export function isSetFitReady(): boolean {
-  return onnxAvailable && specialtySession !== null && conditionSession !== null;
+  return onnxAvailable && specialtySession !== null && conditionSession !== null && specialtyHeadSession !== null && conditionHeadSession !== null;
 }

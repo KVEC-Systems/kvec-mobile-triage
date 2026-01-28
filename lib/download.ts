@@ -63,6 +63,17 @@ const MODELS = {
     file: 'label_mapping.json',
     size: 1150, // ~1 KB
   },
+  // Classification head models
+  specialtyHead: {
+    repo: 'ekim1394/setfit-specialty-onnx',
+    file: 'head/model_head.onnx',
+    size: 10000, // ~10 KB (small classification head)
+  },
+  conditionHead: {
+    repo: 'ekim1394/setfit-condition-onnx',
+    file: 'head/model_head.onnx',
+    size: 10000, // ~10 KB
+  },
 };
 
 export interface DownloadProgress {
@@ -312,11 +323,13 @@ export async function downloadSetFitModels(
     await downloadFile('specialtyOnnx', 'specialty-model.onnx', onProgress);
     await downloadFile('specialtyTokenizer', 'specialty-tokenizer.json', onProgress);
     await downloadFile('specialtyLabels', 'specialty-labels.json', onProgress);
+    await downloadFile('specialtyHead', 'specialty-head.onnx', onProgress);
     
     // Download condition model and files
     await downloadFile('conditionOnnx', 'condition-model.onnx', onProgress);
     await downloadFile('conditionTokenizer', 'condition-tokenizer.json', onProgress);
     await downloadFile('conditionLabels', 'condition-labels.json', onProgress);
+    await downloadFile('conditionHead', 'condition-head.onnx', onProgress);
     
     console.log('SetFit models download complete');
     return true;
