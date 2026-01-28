@@ -19,9 +19,19 @@ const MODELS = {
   gguf: {
     repo: 'ekim1394/medgemma-4b-q2_k-gguf',
     file: 'medgemma-4b-q2_k.gguf',
-    size: 1500000000, // ~1.4GB (Q2_K is roughly 60% of Q4_K_M)
+    size: 1500000000, // ~1.4GB
   },
-  // SetFit models can be added later for ONNX runtime
+  // SetFit ONNX models for fast classification
+  specialtyOnnx: {
+    repo: 'ekim1394/symptom-to-specialty-setfit',
+    file: 'symptom-to-specialty.onnx',
+    size: 100000000, // ~100MB (placeholder - update after export)
+  },
+  conditionOnnx: {
+    repo: 'ekim1394/symptom-to-condition-setfit',
+    file: 'symptom-to-condition.onnx',
+    size: 100000000, // ~100MB (placeholder - update after export)
+  },
 };
 
 export interface DownloadProgress {
@@ -36,6 +46,10 @@ export interface ModelStatus {
     exists: boolean;
     size?: number;
     path: string;
+  };
+  setfit: {
+    specialtyExists: boolean;
+    conditionExists: boolean;
   };
 }
 
@@ -60,19 +74,31 @@ function getDownloadUrl(modelName: keyof typeof MODELS): string {
  */
 export async function checkModelStatus(): Promise<ModelStatus> {
   const ggufPath = getModelUri('gguf');
+  const specialtyPath = getModelUri('specialtyOnnx');
+  const conditionPath = getModelUri('conditionOnnx');
   
   try {
-    const info = await getInfoAsync(ggufPath);
+    const [ggufInfo, specialtyInfo, conditionInfo] = await Promise.all([
+      getInfoAsync(ggufPath),
+      getInfoAsync(specialtyPath),
+      getInfoAsync(conditionPath),
+    ]);
+    
     return {
       gguf: {
-        exists: info.exists,
-        size: info.exists ? (info as any).size : undefined,
+        exists: ggufInfo.exists,
+        size: ggufInfo.exists ? (ggufInfo as any).size : undefined,
         path: ggufPath,
+      },
+      setfit: {
+        specialtyExists: specialtyInfo.exists,
+        conditionExists: conditionInfo.exists,
       },
     };
   } catch {
     return {
       gguf: { exists: false, path: ggufPath },
+      setfit: { specialtyExists: false, conditionExists: false },
     };
   }
 }
