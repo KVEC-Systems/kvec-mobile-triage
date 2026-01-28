@@ -249,6 +249,31 @@ export default function ResultsScreen() {
         <Text style={styles.guidanceText}>{result!.guidance}</Text>
       </View>
 
+      {/* Start Assessment Button - only show when enrichment is complete and we have questions */}
+      {!isEnriching && result!.suggestedQuestions.length > 0 && (
+        <TouchableOpacity
+          style={styles.assessmentButton}
+          onPress={() => {
+            router.push({
+              pathname: '/diagnostic',
+              params: {
+                symptom,
+                specialty: result!.specialty,
+                conditions: result!.conditions.join(','),
+                urgency: result!.urgency,
+                suggestedQuestions: result!.suggestedQuestions.join('|'),
+              },
+            });
+          }}
+        >
+          <Ionicons name="clipboard-outline" size={20} color="#fff" />
+          <Text style={styles.assessmentButtonText}>Start Assessment</Text>
+          <View style={styles.questionCount}>
+            <Text style={styles.questionCountText}>{result!.suggestedQuestions.length} questions</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+
       <TouchableOpacity
         style={styles.chatButton}
         onPress={() => {
@@ -496,6 +521,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1e293b',
     lineHeight: 22,
+  },
+  assessmentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#16a34a',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  assessmentButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  questionCount: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  questionCountText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
   },
   chatButton: {
     flexDirection: 'row',
