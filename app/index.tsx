@@ -14,28 +14,36 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import { checkModelStatus } from '../lib/download';
+import { initializeLLM } from '../lib/llm';
 
 export default function HomeScreen() {
   const [symptom, setSymptom] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingModel, setIsCheckingModel] = useState(true);
+  const [isLoadingModel, setIsLoadingModel] = useState(false);
 
-  // Check if model exists on mount, redirect to download if not
+  // Check if model exists on mount, redirect to download if not, then pre-load model
   useEffect(() => {
-    async function checkModel() {
+    async function checkAndLoadModel() {
       try {
         const status = await checkModelStatus();
         if (!status.gguf.exists) {
           router.replace('/download');
+          return;
         }
+        // Model exists - pre-load it in background
+        setIsCheckingModel(false);
+        setIsLoadingModel(true);
+        await initializeLLM();
       } catch (error) {
-        console.error('Error checking model status:', error);
+        console.error('Error checking/loading model:', error);
       } finally {
         setIsCheckingModel(false);
+        setIsLoadingModel(false);
       }
     }
-    checkModel();
+    checkAndLoadModel();
   }, []);
 
   const handleSubmit = useCallback(async () => {
@@ -84,7 +92,9 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <Ionicons name="medical" size={64} color="#2563eb" />
           <Text style={styles.title}>MedStar Triage</Text>
-          <Text style={styles.subtitle}>Offline symptom-to-specialty routing</Text>
+          <Text style={styles.subtitle}>
+            {isLoadingModel ? 'Loading AI model...' : 'Offline symptom-to-specialty routing'}
+          </Text>
         </View>
 
         <View style={styles.inputContainer}>
