@@ -38,6 +38,100 @@ const SPECIALTIES = [
   'Women\'s Health',
 ];
 
+// Specialty-specific follow-up questions
+const SPECIALTY_QUESTIONS: Record<string, string[]> = {
+  'Behavioral Health': [
+    'How long have you been experiencing these feelings?',
+    'Have these symptoms affected your sleep or appetite?',
+    'Are you currently taking any medications for mental health?',
+    'Have you experienced thoughts of self-harm?',
+  ],
+  'Cardiology': [
+    'Do you experience chest pain or pressure?',
+    'Do symptoms occur during physical activity or at rest?',
+    'Do you have a history of heart disease or high blood pressure?',
+    'Have you noticed any swelling in your legs or ankles?',
+  ],
+  'Dermatology': [
+    'How long have you had this skin condition?',
+    'Is the affected area itchy, painful, or spreading?',
+    'Have you recently changed soaps, detergents, or skincare products?',
+    'Do you have a history of skin conditions or allergies?',
+  ],
+  'Gastroenterology': [
+    'Have you noticed any changes in bowel habits?',
+    'Do you experience pain before or after eating?',
+    'Have you had any nausea, vomiting, or blood in stool?',
+    'Have you recently traveled or eaten unusual foods?',
+  ],
+  'Neurology': [
+    'Have you experienced headaches, dizziness, or vision changes?',
+    'Do you have any numbness, tingling, or weakness?',
+    'Have you had any seizures or loss of consciousness?',
+    'Is there a family history of neurological conditions?',
+  ],
+  'Oncology': [
+    'Have you noticed any unexplained weight loss?',
+    'Do you have any lumps or masses that have changed in size?',
+    'Do you have a family history of cancer?',
+    'Have you experienced unusual fatigue or night sweats?',
+  ],
+  'Orthopedic Surgery': [
+    'Did an injury cause your symptoms?',
+    'Does the pain limit your range of motion?',
+    'Have you tried any treatments like ice, rest, or medication?',
+    'Does the pain radiate to other areas?',
+  ],
+  'Pain Management': [
+    'How would you rate your pain on a scale of 1-10?',
+    'Is the pain constant or does it come and go?',
+    'What makes the pain better or worse?',
+    'How long have you been experiencing this pain?',
+  ],
+  'Primary Care': [
+    'How long have you had these symptoms?',
+    'Have you tried any treatments or medications?',
+    'Do you have any chronic medical conditions?',
+    'Are you up to date on your vaccinations?',
+  ],
+  'Pulmonology': [
+    'Do you experience shortness of breath or wheezing?',
+    'Do you have a cough, and if so, is it productive?',
+    'Do you smoke or have exposure to secondhand smoke?',
+    'Have symptoms worsened at night or during exercise?',
+  ],
+  'Rheumatology': [
+    'Do you have joint pain, stiffness, or swelling?',
+    'Is the stiffness worse in the morning?',
+    'Do symptoms affect multiple joints?',
+    'Do you have a family history of autoimmune conditions?',
+  ],
+  'Sports Medicine': [
+    'How did the injury occur?',
+    'Can you bear weight on the affected area?',
+    'Have you noticed any swelling or bruising?',
+    'Have you had similar injuries before?',
+  ],
+  'Urology': [
+    'Do you have pain or burning when urinating?',
+    'Have you noticed changes in urinary frequency?',
+    'Have you seen blood in your urine?',
+    'For men: do you have difficulty starting or maintaining urine flow?',
+  ],
+  'Vascular Medicine': [
+    'Do you have pain or cramping in your legs when walking?',
+    'Have you noticed color changes in your extremities?',
+    'Do you have a history of blood clots?',
+    'Do you have diabetes or smoke?',
+  ],
+  'Women\'s Health': [
+    'When was your last menstrual period?',
+    'Are you experiencing any unusual bleeding or discharge?',
+    'Could you be pregnant?',
+    'Have you had any changes in your menstrual cycle?',
+  ],
+};
+
 export type UrgencyLevel = 'emergency' | 'urgent' | 'routine';
 
 export interface TriageResult {
@@ -500,13 +594,16 @@ export async function enrichWithLLM(
 ): Promise<EnrichmentResult> {
   const startTime = Date.now();
   
-  // Default result for failures
+  // Get specialty-specific questions as default
+  const specialtyQuestions = SPECIALTY_QUESTIONS[specialty] || SPECIALTY_QUESTIONS['Primary Care'];
+  
+  // Default result for failures - uses specialty-specific questions
   const defaultResult: EnrichmentResult = {
     urgency: 'routine',
     bodySystem: 'general',
     redFlags: [],
     followUpTimeframe: 'within 1 week',
-    suggestedQuestions: ['How long have you had these symptoms?', 'Have you tried any treatments?'],
+    suggestedQuestions: specialtyQuestions,
     enrichmentTime: 0,
   };
 
@@ -539,11 +636,22 @@ URGENCY|RED_FLAGS|TIMEFRAME|QUESTIONS
     console.log('Raw enrichment response:', response.text);
     
     const parsed = parseEnrichmentResponse(response.text);
-    console.log('Parsed enrichment:', JSON.stringify(parsed, null, 2));
+    
+    // Merge: specialty questions first, then any unique LLM-generated questions
+    let finalQuestions = [...specialtyQuestions];
+    if (parsed.suggestedQuestions.length > 0) {
+      // Add LLM questions that aren't duplicates
+      const llmUnique = parsed.suggestedQuestions.filter(q => 
+        !specialtyQuestions.some(sq => sq.toLowerCase().includes(q.toLowerCase().slice(0, 20)))
+      );
+      finalQuestions = [...specialtyQuestions.slice(0, 3), ...llmUnique.slice(0, 2)];
+    }
+    
+    console.log('Final questions:', finalQuestions);
     console.log('Enrichment time:', enrichmentTime, 'ms');
     console.log('=== END ENRICHMENT ===');
     
-    return { ...parsed, enrichmentTime };
+    return { ...parsed, suggestedQuestions: finalQuestions, enrichmentTime };
   } catch (error) {
     console.error('LLM enrichment error:', error);
     return { ...defaultResult, enrichmentTime: Date.now() - startTime };
@@ -585,9 +693,11 @@ function parseEnrichmentResponse(response: string): Omit<EnrichmentResult, 'enri
     }
   }
 
-  // Fallback for empty questions
+  // Use specialty-specific questions as base, add LLM questions if any
+  // Note: specialty is not available in this context, caller should handle
   if (suggestedQuestions.length === 0) {
-    suggestedQuestions = ['How long have you had these symptoms?', 'Have you tried any treatments?'];
+    // Parser found no questions, will use default from caller
+    suggestedQuestions = [];
   }
 
   return { urgency, bodySystem, redFlags, followUpTimeframe, suggestedQuestions };
