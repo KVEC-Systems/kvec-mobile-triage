@@ -54,12 +54,11 @@ let activeDownload: DownloadResumable | null = null;
 // HuggingFace model URLs
 const HF_BASE = 'https://huggingface.co';
 const MODELS = {
-  // Gemma 3n model for MediaPipe (int4 quantized .bin from experimental branch)
+  // Gemma 3n MediaPipe model (.task format - compatible with expo-llm-mediapipe)
   litertlm: {
-    repo: 'google/gemma-3n-E2B-it-litert-lm',
-    branch: 'experimental', // Use experimental branch for .bin format
-    file: 'gemma-3n-E2B-it-int4.bin',
-    size: 2861957120, // 2.86GB
+    repo: 'google/gemma-3n-E2B-it-litert-preview',
+    file: 'gemma-3n-E2B-it-int4.task',
+    size: 3136226711, // 3.14GB
   },
   // SetFit ONNX models for fast classification
   specialtyOnnx: {
@@ -146,7 +145,7 @@ function getDownloadUrl(modelName: keyof typeof MODELS): string {
  * Check which models are already downloaded
  */
 export async function checkModelStatus(): Promise<ModelStatus> {
-  const litertlmPath = `${documentDirectory}models/gemma-3n-E2B-it-int4.bin`;
+  const litertlmPath = `${documentDirectory}models/gemma-3n-E2B-it-int4.task`;
   const specialtyPath = getModelUri('specialtyOnnx');
   const conditionPath = getModelUri('conditionOnnx');
   
@@ -183,7 +182,7 @@ export async function checkModelStatus(): Promise<ModelStatus> {
 export async function downloadLLMModel(
   onProgress?: (progress: DownloadProgress) => void
 ): Promise<boolean> {
-  const fileUri = `${documentDirectory}models/gemma-3n-E2B-it-int4.bin`;
+  const fileUri = `${documentDirectory}models/gemma-3n-E2B-it-int4.task`;
   const dirUri = `${documentDirectory}models`;
   
   // Create models directory if needed
@@ -428,7 +427,7 @@ export function formatBytes(bytes: number): string {
  * Get model file path for LLM loading
  */
 export function getLLMModelPath(): string {
-  return `${documentDirectory}models/gemma-3n-E2B-it-int4.bin`;
+  return `${documentDirectory}models/gemma-3n-E2B-it-int4.task`;
 }
 
 // Keep old function name as alias
