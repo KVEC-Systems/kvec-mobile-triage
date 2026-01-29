@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /Users/ekim/code/kvec/kvec-mobile-triage/modules/litert-lm/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest10582312152407720438.xml:2:13-83
+INJECTED from /Users/ekim/code/kvec/kvec-mobile-triage/modules/litert-lm/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest10582312152407720438.xml:2:13-83
+	package
+		INJECTED from /Users/ekim/code/kvec/kvec-mobile-triage/modules/litert-lm/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest10582312152407720438.xml
+	xmlns:android
+		ADDED from /Users/ekim/code/kvec/kvec-mobile-triage/modules/litert-lm/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest10582312152407720438.xml:2:23-81
+uses-sdk
+INJECTED from /Users/ekim/code/kvec/kvec-mobile-triage/modules/litert-lm/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest10582312152407720438.xml reason: use-sdk injection requested
+INJECTED from /Users/ekim/code/kvec/kvec-mobile-triage/modules/litert-lm/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest10582312152407720438.xml
+INJECTED from /Users/ekim/code/kvec/kvec-mobile-triage/modules/litert-lm/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest10582312152407720438.xml
+	android:targetSdkVersion
+		INJECTED from /Users/ekim/code/kvec/kvec-mobile-triage/modules/litert-lm/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest10582312152407720438.xml
+	android:minSdkVersion
+		INJECTED from /Users/ekim/code/kvec/kvec-mobile-triage/modules/litert-lm/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest10582312152407720438.xml

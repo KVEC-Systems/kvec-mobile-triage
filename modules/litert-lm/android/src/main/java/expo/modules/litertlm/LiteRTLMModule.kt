@@ -61,7 +61,7 @@ class LiteRTLMModule : Module() {
                     }
 
                     val convConfig = ConversationConfig(
-                        samplerConfig = SamplerConfig(topK = 40, topP = 0.95f, temperature = 0.7f)
+                        samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = 0.7)
                     )
                     
                     val conv = eng.createConversation(convConfig)
