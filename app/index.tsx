@@ -99,6 +99,15 @@ export default function HomeScreen() {
           <Text style={styles.modeToggleText}>Switch to First Responder Mode</Text>
         </TouchableOpacity>
 
+        {/* Direct Chat Button */}
+        <TouchableOpacity 
+          style={styles.chatButton}
+          onPress={() => router.push('/direct-chat')}
+        >
+          <Ionicons name="chatbubbles" size={16} color="#6366f1" />
+          <Text style={styles.chatButtonText}>Chat with AI</Text>
+        </TouchableOpacity>
+
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Describe your symptoms</Text>
           <TextInput
@@ -272,6 +281,21 @@ const styles = StyleSheet.create({
   modeToggleText: {
     fontSize: 14,
     color: '#dc2626',
+    fontWeight: '500',
+  },
+  chatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 16,
+    paddingVertical: 10,
+    backgroundColor: '#eef2ff',
+    borderRadius: 8,
+  },
+  chatButtonText: {
+    fontSize: 14,
+    color: '#6366f1',
     fontWeight: '500',
   },
 });
