@@ -11,6 +11,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { checkModelStatus } from '../lib/download';
@@ -34,6 +35,7 @@ export default function FieldReportScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingModel, setIsCheckingModel] = useState(true);
   const [showVitals, setShowVitals] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     async function checkAndLoadModel() {
@@ -101,7 +103,7 @@ export default function FieldReportScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 40) }]}>
         {/* Header */}
         <View style={styles.header}>
           <Ionicons name="medkit" size={48} color="#dc2626" />

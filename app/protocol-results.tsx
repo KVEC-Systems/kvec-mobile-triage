@@ -9,6 +9,7 @@ import {
   Share,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { 
@@ -31,6 +32,7 @@ export default function ProtocolResultsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [showPCR, setShowPCR] = useState(false);
+  const insets = useSafeAreaInsets();
   
   const patientInfo: FieldPatientInfo = patientInfoStr 
     ? JSON.parse(patientInfoStr) 
@@ -266,7 +268,7 @@ export default function ProtocolResultsScreen() {
       </ScrollView>
 
       {/* Bottom Actions */}
-      <View style={styles.bottomActions}>
+      <View style={[styles.bottomActions, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <TouchableOpacity 
           style={styles.pcrButton}
           onPress={handleSharePCR}
