@@ -6,24 +6,33 @@ Downloads clinical guidelines, exports MedSigLIP text encoder to ONNX,
 generates embeddings, and saves everything for mobile use.
 
 Usage:
-    python scripts/build_vector_db.py
+    1. Accept license at https://huggingface.co/google/medsiglip-448
+    2. Run: huggingface-cli login
+    3. Run: python scripts/build_vector_db.py
 """
 
 import json
 import os
 from pathlib import Path
 
+from huggingface_hub import login
 import numpy as np
 import torch
 from datasets import load_dataset
-from transformers import AutoModel, AutoProcessor
+from transformers import AutoModel, SiglipTokenizer
+
+# Authenticate with HuggingFace (uses cached token from `huggingface-cli login`)
+print("Authenticating with HuggingFace...")
+login()
+
 
 # Configuration
 PROJECT_ROOT = Path(__file__).parent.parent
 OUTPUT_DIR = PROJECT_ROOT / "assets"
 MODELS_DIR = PROJECT_ROOT / "models"
-CHUNK_SIZE = 400  # Characters per chunk
-CHUNK_OVERLAP = 50  # Overlap between chunks
+CHUNK_SIZE = 2000  # Characters per chunk (larger = fewer chunks)
+CHUNK_OVERLAP = 200  # Overlap between chunks
+MAX_GUIDELINES = 100  # Limit guidelines for initial release
 
 # High-quality sources to include
 ALLOWED_SOURCES = {"who", "cdc", "nice", "icrc"}
@@ -53,6 +62,12 @@ def load_guidelines():
                 })
     
     print(f"Filtered to {len(filtered)} guidelines from sources: {ALLOWED_SOURCES}")
+    
+    # Limit to MAX_GUIDELINES to keep file size manageable
+    if len(filtered) > MAX_GUIDELINES:
+        print(f"Limiting to {MAX_GUIDELINES} guidelines...")
+        filtered = filtered[:MAX_GUIDELINES]
+    
     return filtered
 
 
@@ -80,7 +95,7 @@ def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVE
     return chunks
 
 
-def export_text_encoder_to_onnx(model, processor, output_path: Path):
+def export_text_encoder_to_onnx(model, tokenizer, output_path: Path):
     """Export only the text encoder to ONNX format."""
     print(f"Exporting text encoder to ONNX: {output_path}")
     
@@ -89,7 +104,7 @@ def export_text_encoder_to_onnx(model, processor, output_path: Path):
     
     # Sample input for tracing
     sample_text = ["sample medical text for export"]
-    inputs = processor(text=sample_text, return_tensors="pt", padding="max_length", max_length=64)
+    inputs = tokenizer(sample_text, return_tensors="pt", padding="max_length", max_length=64, truncation=True, return_attention_mask=True)
     
     # Export to ONNX with dynamic axes
     torch.onnx.export(
@@ -109,11 +124,9 @@ def export_text_encoder_to_onnx(model, processor, output_path: Path):
     print(f"Text encoder exported successfully ({output_path.stat().st_size / 1024 / 1024:.1f} MB)")
 
 
-def export_tokenizer_vocab(processor, output_path: Path):
+def export_tokenizer_vocab(tokenizer, output_path: Path):
     """Export tokenizer vocabulary for JS-side tokenization."""
     print(f"Exporting tokenizer vocab to: {output_path}")
-    
-    tokenizer = processor.tokenizer
     
     # Get vocab - SigLIP uses SentencePiece but we'll export a simplified version
     vocab = tokenizer.get_vocab()
@@ -140,7 +153,7 @@ def export_tokenizer_vocab(processor, output_path: Path):
     print(f"Tokenizer vocab exported ({len(vocab)} tokens)")
 
 
-def generate_embeddings(texts: list[str], model, processor, batch_size: int = 32) -> np.ndarray:
+def generate_embeddings(texts: list[str], model, tokenizer, batch_size: int = 64) -> np.ndarray:
     """Generate embeddings for a list of texts using MedSigLIP."""
     print(f"Generating embeddings for {len(texts)} texts...")
     
@@ -152,18 +165,33 @@ def generate_embeddings(texts: list[str], model, processor, batch_size: int = 32
     
     for i in range(0, len(texts), batch_size):
         batch_texts = texts[i:i + batch_size]
-        inputs = processor(
-            text=batch_texts,
+        inputs = tokenizer(
+            batch_texts,
             return_tensors="pt",
             padding="max_length",
             max_length=64,
             truncation=True,
-        ).to(device)
+            return_attention_mask=True,
+        )
+        inputs = {k: v.to(device) for k, v in inputs.items()}
         
         with torch.no_grad():
+            # Get text features - may return tensor directly or output object
             outputs = model.get_text_features(**inputs)
+            # Handle different output types
+            if hasattr(outputs, 'last_hidden_state'):
+                # Get pooled output from the [CLS] token
+                text_embeds = outputs.last_hidden_state[:, 0, :]
+            elif hasattr(outputs, 'pooler_output'):
+                text_embeds = outputs.pooler_output
+            elif isinstance(outputs, torch.Tensor):
+                text_embeds = outputs
+            else:
+                # Try to get text_embeds attribute or use the output directly
+                text_embeds = getattr(outputs, 'text_embeds', outputs)
+            
             # Normalize embeddings for cosine similarity
-            embeddings = outputs / outputs.norm(dim=-1, keepdim=True)
+            embeddings = text_embeds / text_embeds.norm(dim=-1, keepdim=True)
             all_embeddings.append(embeddings.cpu().numpy())
         
         if (i // batch_size) % 10 == 0:
@@ -181,17 +209,17 @@ def main():
     # Load guidelines
     guidelines = load_guidelines()
     
-    # Load model and processor
+    # Load model and tokenizer (use tokenizer directly instead of processor for text-only)
     print(f"Loading {MODEL_NAME}...")
     model = AutoModel.from_pretrained(MODEL_NAME, trust_remote_code=True)
-    processor = AutoProcessor.from_pretrained(MODEL_NAME, trust_remote_code=True)
+    tokenizer = SiglipTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
     
     # Export ONNX model and tokenizer
     onnx_path = MODELS_DIR / "medsiglip-text.onnx"
     tokenizer_path = MODELS_DIR / "medsiglip-tokenizer.json"
     
-    export_text_encoder_to_onnx(model, processor, onnx_path)
-    export_tokenizer_vocab(processor, tokenizer_path)
+    export_text_encoder_to_onnx(model, tokenizer, onnx_path)
+    export_tokenizer_vocab(tokenizer, tokenizer_path)
     
     # Chunk guidelines and prepare for embedding
     protocols = []
@@ -213,7 +241,7 @@ def main():
     print(f"Created {len(protocols)} chunks from {len(guidelines)} guidelines")
     
     # Generate embeddings
-    embeddings = generate_embeddings(chunk_texts, model, processor)
+    embeddings = generate_embeddings(chunk_texts, model, tokenizer)
     
     # Add embeddings to protocols
     for i, protocol in enumerate(protocols):

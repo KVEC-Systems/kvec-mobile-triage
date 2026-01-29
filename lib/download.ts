@@ -24,18 +24,17 @@ let activeDownload: DownloadResumable | null = null;
 const HF_BASE = 'https://huggingface.co';
 
 // Model configuration
-// Note: These will need to be updated after running build_vector_db.py
-// and uploading the ONNX model to HuggingFace
+// Using INT8 quantized model for smaller download (~434MB vs 1.7GB)
 const MODELS = {
   medsiglipOnnx: {
     repo: 'ekim1394/medsiglip-text-onnx',
-    file: 'medsiglip-text.onnx',
-    size: 350000000, // ~350MB estimated
+    file: 'medsiglip-text-int8.onnx',
+    size: 434000000, // ~434MB (INT8 quantized)
   },
   medsiglipTokenizer: {
     repo: 'ekim1394/medsiglip-text-onnx',
     file: 'medsiglip-tokenizer.json',
-    size: 500000, // ~500KB
+    size: 700000, // ~700KB
   },
 };
 
@@ -74,7 +73,7 @@ function getDownloadUrl(modelKey: keyof typeof MODELS): string {
  * Check which models are already downloaded
  */
 export async function checkModelStatus(): Promise<ModelStatus> {
-  const onnxPath = getModelPath('medsiglip-text.onnx');
+  const onnxPath = getModelPath('medsiglip-text-int8.onnx');
   const tokenizerPath = getModelPath('medsiglip-tokenizer.json');
   
   try {

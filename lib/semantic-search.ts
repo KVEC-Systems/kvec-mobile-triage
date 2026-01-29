@@ -13,7 +13,7 @@ import { Asset } from 'expo-asset';
 
 // Model paths in local storage
 const MODELS_DIR = `${documentDirectory}models/`;
-const MEDSIGLIP_ONNX = 'medsiglip-text.onnx';
+const MEDSIGLIP_ONNX = 'medsiglip-text-int8.onnx';
 const TOKENIZER_FILE = 'medsiglip-tokenizer.json';
 
 // ONNX Runtime is dynamically loaded to avoid crash on import
