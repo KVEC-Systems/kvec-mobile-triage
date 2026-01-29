@@ -86,7 +86,7 @@ export async function cloudInference(prompt: string): Promise<string> {
             content: prompt,
           },
         ],
-        max_tokens: 100,
+        max_tokens: 512,
         temperature: 0.1,
       }),
     });

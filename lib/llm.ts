@@ -272,7 +272,7 @@ export async function runTriage(symptom: string): Promise<TriageResult> {
     // Run inference
     const response = await llamaContext.completion({
       prompt,
-      n_predict: 80,       // Minimal tokens for structured output
+      n_predict: 256,      // Increased tokens for structured output
       temperature: 0.1,    // Very low for deterministic output
       top_p: 0.85,
       stop: ['</s>', '\n\n', '4.'],  // Stop after conditions
@@ -571,7 +571,7 @@ export async function sendMessage(prompt: string): Promise<string> {
   try {
     const result = await llamaContext.completion({
       prompt,
-      n_predict: 200,
+      n_predict: 512,
       temperature: 0.3,
       stop: ['</s>', 'User:', 'Patient:'],
     });
@@ -659,7 +659,7 @@ URGENCY|RED_FLAGS|TIMEFRAME|QUESTIONS
 
     const response = await llamaContext.completion({
       prompt,
-      n_predict: 60,       // Reduced for speed
+      n_predict: 256,      // Increased for richer output
       temperature: 0.1,    // Deterministic
       top_p: 0.85,
       stop: ['</s>', '\n\n'],
@@ -928,7 +928,7 @@ export async function runProtocolInference(
     
     const response = await llamaContext.completion({
       prompt,
-      n_predict: 150,      // More tokens for interventions
+      n_predict: 512,      // More tokens for interventions
       temperature: 0.1,    // Deterministic
       top_p: 0.85,
       stop: ['</s>', '\n\n\n'],
