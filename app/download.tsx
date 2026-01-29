@@ -50,7 +50,7 @@ export default function DownloadScreen() {
       const modelStatus = await checkModelStatus();
       
       // GGUF model is required for triage (SetFit ONNX not yet working)
-      if (modelStatus.gguf.exists) {
+      if (modelStatus.litertlm.exists) {
         // Model exists, can proceed to main screen
         setStatus('complete');
         setTimeout(() => router.replace('/'), 500);

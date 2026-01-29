@@ -1,21 +1,21 @@
 /**
- * LLM Service for on-device inference using llama.rn
- * Uses quantized Gemma 3n E2B model (Q2_K) for clinical triage
+ * LLM Service for on-device inference using expo-llm-mediapipe
+ * Uses Gemma 3n LiteRT model for clinical triage via MediaPipe
  */
 
-import { initLlama, LlamaContext } from 'llama.rn';
+import ExpoLlmMediapipe from 'expo-llm-mediapipe';
 import { Paths, File } from 'expo-file-system';
 
-// Model configuration
-const MODEL_FILENAME = 'google_gemma-3n-E2B-it-Q2_K.gguf';
+// Model configuration - LiteRT format for MediaPipe
+const MODEL_FILENAME = 'gemma-3n-e2b.litertlm';
 
 // Get model file reference (lazy init since Paths.document may not be ready at module load)
 function getModelFile(): File {
   return new File(Paths.document, 'models', MODEL_FILENAME);
 }
 
-// Singleton context
-let llamaContext: LlamaContext | null = null;
+// Singleton model handle (native handle from createModel)
+let modelHandle: number | null = null;
 let isInitializing = false;
 let initError: Error | null = null;
 
@@ -194,11 +194,11 @@ export async function getModelInfo(): Promise<{
 }
 
 /**
- * Initialize the LLM context (loads model into memory)
+ * Initialize the LLM instance (loads model into memory)
  * This is a heavy operation - only call once on app start
  */
 export async function initializeLLM(): Promise<boolean> {
-  if (llamaContext) {
+  if (modelHandle !== null) {
     return true; // Already initialized
   }
 
@@ -207,7 +207,7 @@ export async function initializeLLM(): Promise<boolean> {
     while (isInitializing) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    return llamaContext !== null;
+    return modelHandle !== null;
   }
 
   isInitializing = true;
@@ -220,22 +220,21 @@ export async function initializeLLM(): Promise<boolean> {
     if (!modelExists) {
       throw new Error(
         `Model not found at ${modelFile.uri}. ` +
-        `Please copy the model file to the device.`
+        `Please download the model first.`
       );
     }
 
-    console.log('Loading Gemma 3n model...');
+    console.log('Loading Gemma 3n LiteRT model via MediaPipe...');
     const startTime = Date.now();
 
-    llamaContext = await initLlama({
-      model: modelFile.uri,
-      n_ctx: 256,         // Minimal context for speed
-      n_batch: 256,       // Smaller batch for faster processing
-      n_threads: 8,       // Max CPU threads
-      n_gpu_layers: 99,   // Offload all layers to GPU
-      use_mlock: true,    // Lock model in memory
-      flash_attn: true,   // Flash attention for speed (if supported)
-    });
+    // Create MediaPipe LLM model (returns native handle)
+    modelHandle = await ExpoLlmMediapipe.createModel(
+      modelFile.uri,
+      512,    // maxTokens
+      40,     // topK
+      0.1,    // temperature
+      12345   // randomSeed
+    );
 
     const loadTime = Date.now() - startTime;
     console.log(`Model loaded in ${loadTime}ms`);
@@ -250,6 +249,9 @@ export async function initializeLLM(): Promise<boolean> {
   }
 }
 
+// Request ID counter for MediaPipe API
+let requestIdCounter = 0;
+
 /**
  * Run triage inference on symptom description
  */
@@ -257,7 +259,7 @@ export async function runTriage(symptom: string): Promise<TriageResult> {
   const startTime = Date.now();
 
   // If LLM not available, use fallback
-  if (!llamaContext) {
+  if (modelHandle === null) {
     console.log('LLM not available, using fallback triage');
     return runFallbackTriage(symptom, Date.now() - startTime);
   }
@@ -269,21 +271,15 @@ export async function runTriage(symptom: string): Promise<TriageResult> {
     console.log('Input symptom:', symptom);
     console.log('Prompt:', prompt.substring(0, 200) + '...');
     
-    // Run inference
-    const response = await llamaContext.completion({
-      prompt,
-      n_predict: 1024,     // High token limit for complete output
-      temperature: 0.1,    // Very low for deterministic output
-      top_p: 0.85,
-      stop: ['</s>', '\n\n', '4.'],  // Stop after conditions
-    });
+    // Run inference via MediaPipe
+    const response = await ExpoLlmMediapipe.generateResponse(modelHandle, ++requestIdCounter, prompt);
 
     const inferenceTime = Date.now() - startTime;
-    console.log('Raw LLM response:', response.text);
+    console.log('Raw LLM response:', response);
     console.log('Inference time:', inferenceTime, 'ms');
     
     // Parse the response
-    const result = parseTriageResponse(response.text, symptom);
+    const result = parseTriageResponse(response, symptom);
     console.log('Parsed result:', JSON.stringify(result, null, 2));
     console.log('=== END TRIAGE ===');
     
@@ -539,9 +535,9 @@ function runFallbackTriage(symptom: string, elapsedMs: number): TriageResult {
  * Release LLM resources
  */
 export async function releaseLLM(): Promise<void> {
-  if (llamaContext) {
-    await llamaContext.release();
-    llamaContext = null;
+  if (modelHandle !== null) {
+    await ExpoLlmMediapipe.releaseModel(modelHandle);
+    modelHandle = null;
   }
 }
 
@@ -554,7 +550,7 @@ export function getLLMStatus(): {
   error: string | null;
 } {
   return {
-    initialized: llamaContext !== null,
+    initialized: modelHandle !== null,
     initializing: isInitializing,
     error: initError?.message ?? null,
   };
@@ -564,19 +560,13 @@ export function getLLMStatus(): {
  * Send a freeform message to the LLM and get a response
  */
 export async function sendMessage(prompt: string): Promise<string> {
-  if (!llamaContext) {
+  if (modelHandle === null) {
     throw new Error('LLM not initialized');
   }
 
   try {
-    const result = await llamaContext.completion({
-      prompt,
-      n_predict: 1024,
-      temperature: 0.3,
-      stop: ['</s>', 'User:', 'Patient:'],
-    });
-
-    return result.text.trim();
+    const result = await ExpoLlmMediapipe.generateResponse(modelHandle, ++requestIdCounter, prompt);
+    return result.trim();
   } catch (error) {
     console.error('LLM completion error:', error);
     throw error;
@@ -640,7 +630,7 @@ export async function enrichWithLLM(
   }
 
   // Fall back to on-device inference
-  if (!llamaContext) {
+  if (modelHandle === null) {
     console.log('LLM not available for enrichment, using defaults');
     return { ...defaultResult, enrichmentTime: Date.now() - startTime };
   }
@@ -657,18 +647,12 @@ URGENCY|RED_FLAGS|TIMEFRAME|QUESTIONS
     console.log('=== LLM ENRICHMENT ===');
     console.log('Enriching for:', specialty);
 
-    const response = await llamaContext.completion({
-      prompt,
-      n_predict: 1024,     // High token limit
-      temperature: 0.1,    // Deterministic
-      top_p: 0.85,
-      stop: ['</s>', '\n\n'],
-    });
+    const response = await ExpoLlmMediapipe.generateResponse(modelHandle!, ++requestIdCounter, prompt);
 
     const enrichmentTime = Date.now() - startTime;
-    console.log('Raw enrichment response:', response.text);
+    console.log('Raw enrichment response:', response);
     
-    const parsed = parseEnrichmentResponse(response.text);
+    const parsed = parseEnrichmentResponse(response);
     
     // Merge: specialty questions first, then any unique LLM-generated questions
     let finalQuestions = [...specialtyQuestions];
@@ -913,7 +897,6 @@ export async function runProtocolInference(
   patientInfo: FieldPatientInfo
 ): Promise<ProtocolInferenceResult> {
   const startTime = Date.now();
-  const obsLower = observation.toLowerCase();
 
   // FAST PATH: Check for high-confidence emergency keywords
   // Skip LLM entirely for clear-cut emergencies (sub-100ms)
@@ -939,7 +922,7 @@ export async function runProtocolInference(
   const prompt = buildProtocolPrompt(observation, patientInfo);
   
   // If LLM not available, use fallback
-  if (!llamaContext) {
+  if (modelHandle === null) {
     console.log('LLM not available, using keyword-based protocol matching');
     return runFallbackProtocol(observation, patientInfo, Date.now() - startTime);
   }
@@ -948,26 +931,20 @@ export async function runProtocolInference(
     console.log('=== PROTOCOL INFERENCE ===');
     console.log('Observation:', observation);
     
-    const response = await llamaContext.completion({
-      prompt,
-      n_predict: 300,        // Reduced for speed (~10-15s instead of 40-50s)
-      temperature: 0.1,      // Deterministic
-      top_p: 0.85,
-      stop: ['</s>', '\n\n\n', 'RED_FLAGS', '**RED'],  // Stop earlier
-    });
+    const response = await ExpoLlmMediapipe.generateResponse(modelHandle!, ++requestIdCounter, prompt);
 
     const inferenceTime = Date.now() - startTime;
-    console.log('Raw response:', response.text);
+    console.log('Raw response:', response);
     console.log('Inference time:', inferenceTime, 'ms');
     
-    const result = parseProtocolResponse(response.text, patientInfo);
+    const result = parseProtocolResponse(response, patientInfo);
     console.log('=== END PROTOCOL INFERENCE ===');
     
     return {
       ...result,
       inferenceTime,
       usedLLM: true,
-      rawResponse: response.text,
+      rawResponse: response,
     };
   } catch (error) {
     console.error('Protocol inference error:', error);

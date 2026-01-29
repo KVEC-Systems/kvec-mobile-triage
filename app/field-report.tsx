@@ -41,7 +41,7 @@ export default function FieldReportScreen() {
     async function checkAndLoadModel() {
       try {
         const status = await checkModelStatus();
-        if (!status.gguf.exists) {
+        if (!status.litertlm.exists) {
           router.replace('/download');
           return;
         }

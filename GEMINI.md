@@ -11,7 +11,7 @@ KVEC Triage is an **offline-first** React Native app using Expo. It supports two
 
 - **Framework**: Expo SDK 54 + React Native 0.81.5
 - **Routing**: expo-router v6 (file-based)
-- **LLM**: llama.rn with Gemma 3n E2B Q2_K GGUF model (~1.89GB)
+- **LLM**: expo-llm-mediapipe with Gemma 3n LiteRT model (~2GB)
 - **Cloud Inference**: Optional ngrok tunnel to local GPU server (OpenAI-compatible API)
 - **Fast Classification**: SetFit ONNX models for sub-100ms specialty/condition routing
 - **Build**: EAS Build for iOS/Android
@@ -43,7 +43,7 @@ evaluation/        # Model evaluation scripts
 
 ### Specialty Routing Mode
 1. **Symptom Input** - Text input with example symptoms
-2. **Model Download** - Downloads Gemma 3n GGUF + SetFit ONNX from HuggingFace Hub
+2. **Model Download** - Downloads Gemma 3n LiteRT + SetFit ONNX from HuggingFace Hub
 3. **Tiered Inference** - SetFit for fast classification (~100ms), LLM for rich enrichment
 4. **Hybrid Inference** - Cloud-first with on-device fallback when cloud unavailable
 5. **Fallback Routing** - Keyword-based triage when models unavailable
@@ -81,7 +81,7 @@ Downloaded to `[DocumentDirectory]/models/`:
 
 | File | Source | Size |
 |------|--------|------|
-| `google_gemma-3n-E2B-it-Q2_K.gguf` | bartowski/google_gemma-3n-E2B-it-GGUF | ~1.89GB |
+| `gemma-3n-e2b.litertlm` | google/gemma-3n-E2B-it-litert-lm | ~2GB |
 | `specialty-model.onnx` | ekim1394/setfit-specialty-onnx/body/model.onnx | ~90MB |
 | `condition-model.onnx` | ekim1394/setfit-condition-onnx/body/model.onnx | ~90MB |
 | `specialty-head.onnx` | ekim1394/setfit-specialty-onnx/model_head.onnx | ~39KB |

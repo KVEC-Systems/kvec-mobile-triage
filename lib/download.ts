@@ -17,7 +17,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Storage key for resumable download state
-const DOWNLOAD_STATE_KEY = 'gguf_download_state';
+const DOWNLOAD_STATE_KEY = 'litertlm_download_state';
 
 // Active download reference
 let activeDownload: DownloadResumable | null = null;
@@ -25,10 +25,11 @@ let activeDownload: DownloadResumable | null = null;
 // HuggingFace model URLs
 const HF_BASE = 'https://huggingface.co';
 const MODELS = {
-  gguf: {
-    repo: 'bartowski/google_gemma-3n-E2B-it-GGUF',
-    file: 'google_gemma-3n-E2B-it-Q2_K.gguf',
-    size: 1890000000, // ~1.89GB (Q2_K quantization)
+  // Gemma 3n LiteRT model for MediaPipe
+  litertlm: {
+    repo: 'google/gemma-3n-E2B-it-litert-lm',
+    file: 'gemma3n-E2B-it-lm-f16.litertlm',
+    size: 2000000000, // ~2GB estimated
   },
   // SetFit ONNX models for fast classification
   specialtyOnnx: {
@@ -84,7 +85,7 @@ export interface DownloadProgress {
 }
 
 export interface ModelStatus {
-  gguf: {
+  litertlm: {
     exists: boolean;
     size?: number;
     path: string;
@@ -115,22 +116,22 @@ function getDownloadUrl(modelName: keyof typeof MODELS): string {
  * Check which models are already downloaded
  */
 export async function checkModelStatus(): Promise<ModelStatus> {
-  const ggufPath = getModelUri('gguf');
+  const litertlmPath = `${documentDirectory}models/gemma-3n-e2b.litertlm`;
   const specialtyPath = getModelUri('specialtyOnnx');
   const conditionPath = getModelUri('conditionOnnx');
   
   try {
-    const [ggufInfo, specialtyInfo, conditionInfo] = await Promise.all([
-      getInfoAsync(ggufPath),
+    const [litertlmInfo, specialtyInfo, conditionInfo] = await Promise.all([
+      getInfoAsync(litertlmPath),
       getInfoAsync(specialtyPath),
       getInfoAsync(conditionPath),
     ]);
     
     return {
-      gguf: {
-        exists: ggufInfo.exists,
-        size: ggufInfo.exists ? (ggufInfo as any).size : undefined,
-        path: ggufPath,
+      litertlm: {
+        exists: litertlmInfo.exists,
+        size: litertlmInfo.exists ? (litertlmInfo as any).size : undefined,
+        path: litertlmPath,
       },
       setfit: {
         specialtyExists: specialtyInfo.exists,
@@ -139,20 +140,20 @@ export async function checkModelStatus(): Promise<ModelStatus> {
     };
   } catch {
     return {
-      gguf: { exists: false, path: ggufPath },
+      litertlm: { exists: false, path: litertlmPath },
       setfit: { specialtyExists: false, conditionExists: false },
     };
   }
 }
 
 /**
- * Download the GGUF model with progress callback
+ * Download the LiteRT LLM model with progress callback
  * Supports resuming after app goes to background
  */
-export async function downloadGGUFModel(
+export async function downloadLLMModel(
   onProgress?: (progress: DownloadProgress) => void
 ): Promise<boolean> {
-  const fileUri = getModelUri('gguf');
+  const fileUri = `${documentDirectory}models/gemma-3n-e2b.litertlm`;
   const dirUri = `${documentDirectory}models`;
   
   // Create models directory if needed
@@ -164,14 +165,14 @@ export async function downloadGGUFModel(
 
   // Check if already exists and complete
   const info = await getInfoAsync(fileUri);
-  if (info.exists && (info as any).size >= MODELS.gguf.size * 0.99) {
-    console.log('GGUF model already downloaded');
+  if (info.exists && (info as any).size >= MODELS.litertlm.size * 0.99) {
+    console.log('LiteRT model already downloaded');
     await AsyncStorage.removeItem(DOWNLOAD_STATE_KEY);
     return true;
   }
 
-  const url = getDownloadUrl('gguf');
-  const expectedSize = MODELS.gguf.size;
+  const url = `${HF_BASE}/${MODELS.litertlm.repo}/resolve/main/${MODELS.litertlm.file}`;
+  const expectedSize = MODELS.litertlm.size;
 
   try {
     // Check for saved resumable state
@@ -182,7 +183,7 @@ export async function downloadGGUFModel(
         const current = downloadProgress.totalBytesWritten;
         const total = downloadProgress.totalBytesExpectedToWrite || expectedSize;
         onProgress({
-          modelName: 'Gemma 3n E2B Q2_K',
+          modelName: 'Gemma 3n LiteRT',
           current,
           total,
           percent: Math.round((current / total) * 100),
@@ -194,7 +195,7 @@ export async function downloadGGUFModel(
     
     if (savedState) {
       // Resume from saved state
-      console.log('Resuming GGUF model download...');
+      console.log('Resuming LiteRT model download...');
       activeDownload = createDownloadResumable(
         url,
         fileUri,
@@ -205,7 +206,7 @@ export async function downloadGGUFModel(
       result = await activeDownload.resumeAsync();
     } else {
       // Start fresh download
-      console.log(`Downloading GGUF model from ${url}`);
+      console.log(`Downloading LiteRT model from ${url}`);
       activeDownload = createDownloadResumable(
         url,
         fileUri,
@@ -216,7 +217,7 @@ export async function downloadGGUFModel(
     }
     
     if (result?.uri) {
-      console.log('GGUF model download complete');
+      console.log('LiteRT model download complete');
       await AsyncStorage.removeItem(DOWNLOAD_STATE_KEY);
       activeDownload = null;
       return true;
@@ -240,6 +241,9 @@ export async function downloadGGUFModel(
     throw error;
   }
 }
+
+// Keep old function name as alias for backward compatibility
+export const downloadGGUFModel = downloadLLMModel;
 
 /**
  * Pause the active download (call before app goes to background)
@@ -346,8 +350,8 @@ export async function getRemainingDownloadSize(): Promise<number> {
   const status = await checkModelStatus();
   let total = 0;
   
-  if (!status.gguf.exists) {
-    total += MODELS.gguf.size;
+  if (!status.litertlm.exists) {
+    total += MODELS.litertlm.size;
   }
   
   // Add SetFit files if not present
@@ -374,6 +378,9 @@ export function formatBytes(bytes: number): string {
 /**
  * Get model file path for LLM loading
  */
-export function getGGUFModelPath(): string {
-  return getModelUri('gguf');
+export function getLLMModelPath(): string {
+  return `${documentDirectory}models/gemma-3n-e2b.litertlm`;
 }
+
+// Keep old function name as alias
+export const getGGUFModelPath = getLLMModelPath;
