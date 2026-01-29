@@ -272,7 +272,7 @@ export async function runTriage(symptom: string): Promise<TriageResult> {
     // Run inference
     const response = await llamaContext.completion({
       prompt,
-      n_predict: 256,      // Increased tokens for structured output
+      n_predict: 1024,     // High token limit for complete output
       temperature: 0.1,    // Very low for deterministic output
       top_p: 0.85,
       stop: ['</s>', '\n\n', '4.'],  // Stop after conditions
@@ -571,7 +571,7 @@ export async function sendMessage(prompt: string): Promise<string> {
   try {
     const result = await llamaContext.completion({
       prompt,
-      n_predict: 512,
+      n_predict: 1024,
       temperature: 0.3,
       stop: ['</s>', 'User:', 'Patient:'],
     });
@@ -659,7 +659,7 @@ URGENCY|RED_FLAGS|TIMEFRAME|QUESTIONS
 
     const response = await llamaContext.completion({
       prompt,
-      n_predict: 256,      // Increased for richer output
+      n_predict: 1024,     // High token limit
       temperature: 0.1,    // Deterministic
       top_p: 0.85,
       stop: ['</s>', '\n\n'],
@@ -901,6 +901,7 @@ export interface ProtocolInferenceResult {
   redFlags: string[];
   inferenceTime: number;
   usedLLM: boolean;
+  rawResponse?: string;  // Debug: raw LLM output
 }
 
 /**
@@ -928,7 +929,7 @@ export async function runProtocolInference(
     
     const response = await llamaContext.completion({
       prompt,
-      n_predict: 512,      // More tokens for interventions
+      n_predict: 1024,     // High token limit for interventions
       temperature: 0.1,    // Deterministic
       top_p: 0.85,
       stop: ['</s>', '\n\n\n'],
@@ -945,6 +946,7 @@ export async function runProtocolInference(
       ...result,
       inferenceTime,
       usedLLM: true,
+      rawResponse: response.text,
     };
   } catch (error) {
     console.error('Protocol inference error:', error);

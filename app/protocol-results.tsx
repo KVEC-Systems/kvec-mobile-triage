@@ -32,6 +32,7 @@ export default function ProtocolResultsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [showPCR, setShowPCR] = useState(false);
+  const [showRawResponse, setShowRawResponse] = useState(false);
   const insets = useSafeAreaInsets();
   
   const patientInfo: FieldPatientInfo = patientInfoStr 
@@ -265,6 +266,28 @@ export default function ProtocolResultsScreen() {
             Confidence: {Math.round(result.confidence * 100)}%
           </Text>
         </View>
+
+        {/* Raw Response Toggle */}
+        {result.rawResponse && (
+          <>
+            <TouchableOpacity 
+              style={styles.rawToggle}
+              onPress={() => setShowRawResponse(!showRawResponse)}
+            >
+              <Ionicons 
+                name={showRawResponse ? "chevron-down" : "chevron-forward"} 
+                size={16} 
+                color="#64748b" 
+              />
+              <Text style={styles.rawToggleText}>Debug: Raw LLM Response</Text>
+            </TouchableOpacity>
+            {showRawResponse && (
+              <View style={styles.rawCard}>
+                <Text style={styles.rawText} selectable>{result.rawResponse}</Text>
+              </View>
+            )}
+          </>
+        )}
       </ScrollView>
 
       {/* Bottom Actions */}
@@ -522,5 +545,30 @@ const styles = StyleSheet.create({
     color: '#dc2626',
     fontSize: 16,
     fontWeight: '600',
+  },
+  rawToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  rawToggleText: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  rawCard: {
+    backgroundColor: '#0a0a0a',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  rawText: {
+    fontSize: 12,
+    color: '#a3e635',
+    fontFamily: 'monospace',
+    lineHeight: 18,
   },
 });
