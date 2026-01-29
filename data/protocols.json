@@ -1,0 +1,464 @@
+{
+  "protocols": [
+    {
+      "id": "stemi",
+      "name": "STEMI Protocol",
+      "category": "cardiac",
+      "keywords": ["chest pain", "crushing", "pressure", "heart attack", "mi", "myocardial infarction", "st elevation", "diaphoretic", "sweating", "radiating arm", "jaw pain"],
+      "indications": ["Chest pain with ST-elevation on ECG", "Suspected acute MI", "Crushing/pressure chest pain with diaphoresis"],
+      "contraindications": [],
+      "steps": [
+        {"order": 1, "action": "Obtain 12-lead ECG", "critical": true},
+        {"order": 2, "action": "Establish IV access", "critical": true},
+        {"order": 3, "action": "Administer oxygen if SpO2 < 94%", "critical": false},
+        {"order": 4, "action": "Administer Aspirin 324mg PO (chew)", "critical": true, "drugRef": "aspirin"},
+        {"order": 5, "action": "Administer Nitroglycerin 0.4mg SL if SBP > 90", "critical": false, "drugRef": "nitroglycerin"},
+        {"order": 6, "action": "Consider Morphine 2-4mg IV for pain", "critical": false, "drugRef": "morphine"},
+        {"order": 7, "action": "Activate cath lab / transport to PCI center", "critical": true},
+        {"order": 8, "action": "Continuous cardiac monitoring", "critical": true}
+      ],
+      "medications": [
+        {"drug": "aspirin", "dose": "324mg", "route": "PO", "note": "Chewable preferred"},
+        {"drug": "nitroglycerin", "dose": "0.4mg", "route": "SL", "note": "May repeat x3 q5min if SBP > 90"},
+        {"drug": "morphine", "dose": "2-4mg", "route": "IV", "note": "Titrate to pain relief"}
+      ],
+      "redFlags": ["Hypotension (SBP < 90)", "Right ventricular infarction", "Recent PDE5 inhibitor use (no NTG)"],
+      "transportPriority": "immediate"
+    },
+    {
+      "id": "cardiac-arrest",
+      "name": "Cardiac Arrest / ACLS",
+      "category": "cardiac",
+      "keywords": ["unresponsive", "not breathing", "no pulse", "pulseless", "cpr", "code", "arrest", "vfib", "vtach", "asystole", "pea"],
+      "indications": ["Unresponsive patient", "Absent pulse", "Agonal/absent respirations"],
+      "contraindications": ["Valid DNR/POLST"],
+      "steps": [
+        {"order": 1, "action": "Confirm unresponsive, no pulse, no breathing", "critical": true},
+        {"order": 2, "action": "Begin high-quality CPR: 100-120/min, 2 inches depth", "critical": true},
+        {"order": 3, "action": "Attach defibrillator/AED", "critical": true},
+        {"order": 4, "action": "If shockable (VF/VT): Defibrillate 200J biphasic", "critical": true},
+        {"order": 5, "action": "Resume CPR immediately for 2 minutes", "critical": true},
+        {"order": 6, "action": "Establish IV/IO access", "critical": true},
+        {"order": 7, "action": "Epinephrine 1mg IV/IO q3-5min", "critical": true, "drugRef": "epinephrine"},
+        {"order": 8, "action": "If refractory VF/VT: Amiodarone 300mg IV", "critical": false, "drugRef": "amiodarone"},
+        {"order": 9, "action": "Advanced airway when appropriate", "critical": false},
+        {"order": 10, "action": "Identify reversible causes (H's and T's)", "critical": true}
+      ],
+      "medications": [
+        {"drug": "epinephrine", "dose": "1mg", "route": "IV/IO", "note": "Repeat every 3-5 minutes"},
+        {"drug": "amiodarone", "dose": "300mg", "route": "IV", "note": "First dose; may repeat 150mg"},
+        {"drug": "lidocaine", "dose": "1-1.5mg/kg", "route": "IV", "note": "Alternative to amiodarone"}
+      ],
+      "redFlags": ["Prolonged downtime", "Asystole > 20 min", "No ROSC after 30 min"],
+      "transportPriority": "immediate"
+    },
+    {
+      "id": "anaphylaxis",
+      "name": "Anaphylaxis Protocol",
+      "category": "allergic",
+      "keywords": ["allergic reaction", "bee sting", "swelling", "hives", "difficulty breathing", "throat closing", "anaphylaxis", "epipen", "allergy"],
+      "indications": ["Severe allergic reaction", "Airway swelling", "Hypotension with allergen exposure", "Urticaria with respiratory distress"],
+      "contraindications": [],
+      "steps": [
+        {"order": 1, "action": "Remove allergen if possible", "critical": true},
+        {"order": 2, "action": "Assess airway - prepare for intubation if swelling", "critical": true},
+        {"order": 3, "action": "Epinephrine 0.3-0.5mg IM (lateral thigh)", "critical": true, "drugRef": "epinephrine-im"},
+        {"order": 4, "action": "Establish large-bore IV access", "critical": true},
+        {"order": 5, "action": "NS bolus 1-2L if hypotensive", "critical": false},
+        {"order": 6, "action": "Diphenhydramine 25-50mg IV/IM", "critical": false, "drugRef": "diphenhydramine"},
+        {"order": 7, "action": "Albuterol nebulizer if bronchospasm", "critical": false, "drugRef": "albuterol"},
+        {"order": 8, "action": "Consider Methylprednisolone 125mg IV", "critical": false},
+        {"order": 9, "action": "Repeat Epinephrine q5-15min if no improvement", "critical": true}
+      ],
+      "medications": [
+        {"drug": "epinephrine", "dose": "0.3-0.5mg", "route": "IM", "note": "Pediatric: 0.01mg/kg, max 0.3mg"},
+        {"drug": "diphenhydramine", "dose": "25-50mg", "route": "IV/IM", "note": "H1 blocker"},
+        {"drug": "albuterol", "dose": "2.5mg", "route": "NEB", "note": "For bronchospasm"}
+      ],
+      "redFlags": ["Stridor", "Rapid progression", "Biphasic reaction risk"],
+      "transportPriority": "immediate"
+    },
+    {
+      "id": "stroke",
+      "name": "Stroke / CVA Protocol",
+      "category": "neurological",
+      "keywords": ["stroke", "facial droop", "arm weakness", "slurred speech", "tpa", "cva", "one sided weakness", "confusion", "sudden headache"],
+      "indications": ["Sudden onset focal neurological deficit", "FAST positive", "Altered mental status with focal signs"],
+      "contraindications": [],
+      "steps": [
+        {"order": 1, "action": "Perform FAST assessment", "critical": true},
+        {"order": 2, "action": "Document last known well time", "critical": true},
+        {"order": 3, "action": "Check blood glucose", "critical": true},
+        {"order": 4, "action": "Establish IV access (no dextrose unless hypoglycemic)", "critical": true},
+        {"order": 5, "action": "Transport to stroke center", "critical": true},
+        {"order": 6, "action": "Pre-notify receiving facility", "critical": true},
+        {"order": 7, "action": "Maintain SpO2 > 94%", "critical": false},
+        {"order": 8, "action": "Position head of stretcher at 30 degrees", "critical": false},
+        {"order": 9, "action": "Do NOT treat hypertension unless SBP > 220", "critical": true}
+      ],
+      "medications": [],
+      "redFlags": ["Rapidly declining LOC", "Signs of herniation", "Seizure activity"],
+      "transportPriority": "immediate"
+    },
+    {
+      "id": "hypoglycemia",
+      "name": "Hypoglycemia Protocol",
+      "category": "metabolic",
+      "keywords": ["low blood sugar", "diabetic", "insulin", "confused", "sweating", "shaky", "glucose", "hypoglycemia", "altered mental status"],
+      "indications": ["Blood glucose < 60mg/dL", "Symptomatic hypoglycemia", "Altered LOC in known diabetic"],
+      "contraindications": [],
+      "steps": [
+        {"order": 1, "action": "Check blood glucose", "critical": true},
+        {"order": 2, "action": "If conscious and can swallow: Oral glucose 15-20g", "critical": false},
+        {"order": 3, "action": "If unconscious/unable to swallow: D10 or D50 IV", "critical": true, "drugRef": "dextrose"},
+        {"order": 4, "action": "If no IV: Glucagon 1mg IM", "critical": false, "drugRef": "glucagon"},
+        {"order": 5, "action": "Recheck glucose in 15 minutes", "critical": true},
+        {"order": 6, "action": "Repeat treatment if glucose remains < 60", "critical": false},
+        {"order": 7, "action": "Determine cause (missed meal, insulin error, etc.)", "critical": false}
+      ],
+      "medications": [
+        {"drug": "dextrose", "dose": "D10 100mL or D50 25mL", "route": "IV", "note": "D10 preferred for neonates/pediatrics"},
+        {"drug": "glucagon", "dose": "1mg", "route": "IM/IN", "note": "If no IV access; slower onset"}
+      ],
+      "redFlags": ["Persistently low glucose despite treatment", "Sulfonylurea overdose", "Altered LOC not improving"],
+      "transportPriority": "urgent"
+    },
+    {
+      "id": "opioid-overdose",
+      "name": "Opioid Overdose Protocol",
+      "category": "toxicology",
+      "keywords": ["overdose", "heroin", "fentanyl", "opioid", "not breathing", "pinpoint pupils", "unresponsive", "narcan", "naloxone"],
+      "indications": ["Respiratory depression with suspected opioid use", "Pinpoint pupils", "Unresponsive with track marks or paraphernalia"],
+      "contraindications": [],
+      "steps": [
+        {"order": 1, "action": "Ensure scene safety (possible fentanyl exposure)", "critical": true},
+        {"order": 2, "action": "Open airway, provide BVM ventilation", "critical": true},
+        {"order": 3, "action": "Naloxone 2mg IN or 0.4mg IV/IM", "critical": true, "drugRef": "naloxone"},
+        {"order": 4, "action": "Continue ventilatory support", "critical": true},
+        {"order": 5, "action": "Repeat Naloxone q2-3min if no response (max 10mg)", "critical": false},
+        {"order": 6, "action": "Maintain airway - prepare for vomiting", "critical": true},
+        {"order": 7, "action": "Transport - observe for renarcotization", "critical": true}
+      ],
+      "medications": [
+        {"drug": "naloxone", "dose": "2mg IN or 0.4-2mg IV/IM", "route": "IN/IV/IM", "note": "May repeat q2-3min; titrate to respiratory effort"}
+      ],
+      "redFlags": ["Fentanyl may require higher doses", "Risk of acute withdrawal", "Renarcotization if long-acting opioid"],
+      "transportPriority": "immediate"
+    },
+    {
+      "id": "seizure",
+      "name": "Seizure Protocol",
+      "category": "neurological",
+      "keywords": ["seizure", "convulsion", "shaking", "epilepsy", "postictal", "status epilepticus", "fitting"],
+      "indications": ["Active seizure", "Postictal state", "Status epilepticus (> 5 min continuous)"],
+      "contraindications": [],
+      "steps": [
+        {"order": 1, "action": "Protect patient from injury, do not restrain", "critical": true},
+        {"order": 2, "action": "Position on side if possible (recovery position)", "critical": true},
+        {"order": 3, "action": "Time the seizure", "critical": true},
+        {"order": 4, "action": "Suction airway as needed", "critical": false},
+        {"order": 5, "action": "Check blood glucose", "critical": true},
+        {"order": 6, "action": "If seizure > 5 min: Midazolam 10mg IM or 5mg IV", "critical": true, "drugRef": "midazolam"},
+        {"order": 7, "action": "Establish IV access if not already", "critical": false},
+        {"order": 8, "action": "Continuous monitoring, assess for recurrence", "critical": true}
+      ],
+      "medications": [
+        {"drug": "midazolam", "dose": "10mg IM or 5mg IV", "route": "IM/IV/IN", "note": "Pediatric: 0.2mg/kg IM, max 10mg"},
+        {"drug": "diazepam", "dose": "5-10mg IV", "route": "IV/PR", "note": "Alternative to midazolam"},
+        {"drug": "lorazepam", "dose": "2-4mg IV", "route": "IV", "note": "Alternative; longer duration"}
+      ],
+      "redFlags": ["Status epilepticus", "First seizure", "Pregnancy (eclampsia)", "Fever (febrile seizure)"],
+      "transportPriority": "urgent"
+    },
+    {
+      "id": "asthma-copd",
+      "name": "Asthma / COPD Exacerbation",
+      "category": "respiratory",
+      "keywords": ["wheezing", "asthma", "copd", "difficulty breathing", "shortness of breath", "tight chest", "can't breathe", "inhaler"],
+      "indications": ["Wheezing", "Accessory muscle use", "Decreased breath sounds", "History of asthma/COPD"],
+      "contraindications": [],
+      "steps": [
+        {"order": 1, "action": "Position of comfort (usually upright)", "critical": true},
+        {"order": 2, "action": "Oxygen to maintain SpO2 94-98% (88-92% for COPD)", "critical": true},
+        {"order": 3, "action": "Albuterol 2.5mg nebulizer", "critical": true, "drugRef": "albuterol"},
+        {"order": 4, "action": "Ipratropium 0.5mg nebulizer (may combine)", "critical": false, "drugRef": "ipratropium"},
+        {"order": 5, "action": "If severe: Epinephrine 0.3mg IM", "critical": false, "drugRef": "epinephrine-im"},
+        {"order": 6, "action": "Continuous nebulizer if no improvement", "critical": false},
+        {"order": 7, "action": "Consider CPAP if available and tolerated", "critical": false},
+        {"order": 8, "action": "IV access for severe cases", "critical": false}
+      ],
+      "medications": [
+        {"drug": "albuterol", "dose": "2.5mg", "route": "NEB", "note": "May repeat or continuous neb"},
+        {"drug": "ipratropium", "dose": "0.5mg", "route": "NEB", "note": "Often combined with albuterol (DuoNeb)"},
+        {"drug": "epinephrine", "dose": "0.3mg", "route": "IM", "note": "For severe bronchospasm"}
+      ],
+      "redFlags": ["Silent chest", "Altered LOC", "Cyanosis", "Inability to speak"],
+      "transportPriority": "urgent"
+    },
+    {
+      "id": "chest-pain-general",
+      "name": "Chest Pain - General Assessment",
+      "category": "cardiac",
+      "keywords": ["chest pain", "chest pressure", "chest discomfort", "angina"],
+      "indications": ["Any chest pain or discomfort", "Cardiac risk factors present"],
+      "contraindications": [],
+      "steps": [
+        {"order": 1, "action": "Obtain 12-lead ECG", "critical": true},
+        {"order": 2, "action": "Assess pain: OPQRST", "critical": true},
+        {"order": 3, "action": "Check vital signs including SpO2", "critical": true},
+        {"order": 4, "action": "Establish IV access", "critical": true},
+        {"order": 5, "action": "Aspirin 324mg if cardiac suspected and no contraindication", "critical": false, "drugRef": "aspirin"},
+        {"order": 6, "action": "Nitroglycerin 0.4mg SL if SBP > 90 and no PDE5 inhibitor", "critical": false, "drugRef": "nitroglycerin"},
+        {"order": 7, "action": "Continuous cardiac monitoring", "critical": true},
+        {"order": 8, "action": "Identify STEMI → activate cath lab", "critical": true}
+      ],
+      "medications": [
+        {"drug": "aspirin", "dose": "324mg", "route": "PO", "note": "Chewable; hold if GI bleed or allergy"},
+        {"drug": "nitroglycerin", "dose": "0.4mg", "route": "SL", "note": "Contraindicated if recent Viagra/Cialis/Levitra"}
+      ],
+      "redFlags": ["STEMI on ECG", "Hypotension", "Diaphoresis", "Radiation to arm/jaw"],
+      "transportPriority": "urgent"
+    },
+    {
+      "id": "trauma-hemorrhage",
+      "name": "Hemorrhage Control Protocol",
+      "category": "trauma",
+      "keywords": ["bleeding", "hemorrhage", "blood loss", "laceration", "trauma", "wound", "tourniquet"],
+      "indications": ["Significant external bleeding", "Traumatic injury with blood loss"],
+      "contraindications": [],
+      "steps": [
+        {"order": 1, "action": "Apply direct pressure with gauze", "critical": true},
+        {"order": 2, "action": "If extremity and severe: Apply tourniquet proximally", "critical": true},
+        {"order": 3, "action": "Pack wound with hemostatic gauze if available", "critical": false},
+        {"order": 4, "action": "Elevate extremity if possible", "critical": false},
+        {"order": 5, "action": "Establish large-bore IV access x2", "critical": true},
+        {"order": 6, "action": "NS or LR wide open if hypotensive", "critical": false},
+        {"order": 7, "action": "Consider TXA 1g IV if < 3 hours from injury", "critical": false, "drugRef": "txa"},
+        {"order": 8, "action": "Rapid transport to trauma center", "critical": true}
+      ],
+      "medications": [
+        {"drug": "txa", "dose": "1g", "route": "IV", "note": "Within 3 hours of injury; over 10 min"}
+      ],
+      "redFlags": ["Uncontrolled hemorrhage", "Hemodynamic instability", "Signs of shock"],
+      "transportPriority": "immediate"
+    },
+    {
+      "id": "bradycardia",
+      "name": "Symptomatic Bradycardia",
+      "category": "cardiac",
+      "keywords": ["slow heart rate", "bradycardia", "dizzy", "syncope", "heart block", "pacer"],
+      "indications": ["HR < 60 with symptoms", "Altered LOC", "Hypotension", "Chest pain"],
+      "contraindications": [],
+      "steps": [
+        {"order": 1, "action": "12-lead ECG", "critical": true},
+        {"order": 2, "action": "Identify cause (medications, MI, etc.)", "critical": true},
+        {"order": 3, "action": "If symptomatic: Atropine 0.5mg IV", "critical": true, "drugRef": "atropine"},
+        {"order": 4, "action": "May repeat Atropine q3-5min (max 3mg)", "critical": false},
+        {"order": 5, "action": "If Atropine ineffective: Transcutaneous pacing", "critical": true},
+        {"order": 6, "action": "Consider Dopamine or Epinephrine infusion", "critical": false},
+        {"order": 7, "action": "Transport with pacer ready", "critical": true}
+      ],
+      "medications": [
+        {"drug": "atropine", "dose": "0.5mg", "route": "IV", "note": "May repeat q3-5min, max 3mg total"},
+        {"drug": "dopamine", "dose": "5-20mcg/kg/min", "route": "IV infusion", "note": "If atropine fails"},
+        {"drug": "epinephrine", "dose": "2-10mcg/min", "route": "IV infusion", "note": "Alternative to dopamine"}
+      ],
+      "redFlags": ["Third-degree heart block", "Wide QRS", "Inferior MI"],
+      "transportPriority": "immediate"
+    },
+    {
+      "id": "tachycardia-stable",
+      "name": "Stable Tachycardia",
+      "category": "cardiac",
+      "keywords": ["fast heart rate", "tachycardia", "svt", "rapid", "pounding heart", "racing heart"],
+      "indications": ["HR > 150", "Regular narrow QRS", "Hemodynamically stable"],
+      "contraindications": [],
+      "steps": [
+        {"order": 1, "action": "12-lead ECG - identify rhythm", "critical": true},
+        {"order": 2, "action": "Assess stability (BP, mental status, chest pain)", "critical": true},
+        {"order": 3, "action": "If narrow regular (SVT): Vagal maneuvers", "critical": false},
+        {"order": 4, "action": "Adenosine 6mg rapid IV push", "critical": true, "drugRef": "adenosine"},
+        {"order": 5, "action": "If no conversion: Adenosine 12mg IV", "critical": false},
+        {"order": 6, "action": "If wide and regular: Consider Amiodarone", "critical": false, "drugRef": "amiodarone"},
+        {"order": 7, "action": "If unstable: Synchronized cardioversion", "critical": true}
+      ],
+      "medications": [
+        {"drug": "adenosine", "dose": "6mg, then 12mg", "route": "IV", "note": "Rapid push followed by flush; warn patient"},
+        {"drug": "amiodarone", "dose": "150mg", "route": "IV over 10 min", "note": "For wide-complex tachycardia"}
+      ],
+      "redFlags": ["Becomes unstable", "Wide QRS", "AF with WPW"],
+      "transportPriority": "urgent"
+    },
+    {
+      "id": "pediatric-resuscitation",
+      "name": "Pediatric Resuscitation (PALS)",
+      "category": "pediatric",
+      "keywords": ["child", "baby", "infant", "pediatric", "not breathing", "unresponsive", "choking", "pals"],
+      "indications": ["Pediatric cardiac arrest", "Respiratory failure", "Unresponsive child"],
+      "contraindications": [],
+      "steps": [
+        {"order": 1, "action": "Check responsiveness and breathing", "critical": true},
+        {"order": 2, "action": "If no pulse: Begin CPR 15:2 (2 rescuer) or 30:2 (1 rescuer)", "critical": true},
+        {"order": 3, "action": "Compression depth: 1/3 chest depth", "critical": true},
+        {"order": 4, "action": "Attach AED/defibrillator", "critical": true},
+        {"order": 5, "action": "If shockable: 2J/kg first shock, 4J/kg subsequent", "critical": true},
+        {"order": 6, "action": "Epinephrine 0.01mg/kg IV/IO q3-5min", "critical": true, "drugRef": "epinephrine-peds"},
+        {"order": 7, "action": "Establish IO if IV unsuccessful after 90 sec", "critical": true},
+        {"order": 8, "action": "Consider reversible causes", "critical": true}
+      ],
+      "medications": [
+        {"drug": "epinephrine", "dose": "0.01mg/kg (0.1mL/kg of 1:10,000)", "route": "IV/IO", "note": "Max 1mg; repeat q3-5min"},
+        {"drug": "amiodarone", "dose": "5mg/kg", "route": "IV/IO", "note": "For refractory VF/pVT; max 300mg"}
+      ],
+      "redFlags": ["Prolonged arrest", "Unknown downtime", "Suspected abuse/NAT"],
+      "transportPriority": "immediate"
+    },
+    {
+      "id": "head-injury",
+      "name": "Traumatic Head Injury",
+      "category": "trauma",
+      "keywords": ["head injury", "concussion", "unconscious", "fall", "hit head", "tbi", "brain injury"],
+      "indications": ["Mechanism of head trauma", "Altered LOC", "Amnesia", "Vomiting after head injury"],
+      "contraindications": [],
+      "steps": [
+        {"order": 1, "action": "C-spine stabilization", "critical": true},
+        {"order": 2, "action": "Assess GCS and pupil response", "critical": true},
+        {"order": 3, "action": "Maintain airway - avoid hyperventilation", "critical": true},
+        {"order": 4, "action": "Oxygen to maintain SpO2 > 94%", "critical": true},
+        {"order": 5, "action": "IV access - avoid hypotension (MAP > 80)", "critical": true},
+        {"order": 6, "action": "Check blood glucose", "critical": true},
+        {"order": 7, "action": "If herniation signs: Brief hyperventilation", "critical": false},
+        {"order": 8, "action": "Rapid transport to trauma center", "critical": true}
+      ],
+      "medications": [],
+      "redFlags": ["GCS < 8", "Unequal pupils", "Posturing", "Battle's sign / Raccoon eyes"],
+      "transportPriority": "immediate"
+    },
+    {
+      "id": "spinal-immobilization",
+      "name": "Spinal Immobilization",
+      "category": "trauma",
+      "keywords": ["spine", "neck pain", "back pain", "fall", "mvc", "can't feel legs", "paralysis", "c-spine"],
+      "indications": ["Blunt trauma with mechanism", "Neck/back pain", "Neurological deficit", "Altered LOC with trauma"],
+      "contraindications": ["Penetrating trauma to spine (selective)"],
+      "steps": [
+        {"order": 1, "action": "Manual inline stabilization", "critical": true},
+        {"order": 2, "action": "Apply cervical collar", "critical": true},
+        {"order": 3, "action": "Log roll with spine alignment", "critical": true},
+        {"order": 4, "action": "Secure to backboard or vacuum splint", "critical": true},
+        {"order": 5, "action": "Complete neurological assessment", "critical": true},
+        {"order": 6, "action": "Monitor for neurogenic shock", "critical": false},
+        {"order": 7, "action": "Transport to trauma center", "critical": true}
+      ],
+      "medications": [],
+      "redFlags": ["Motor weakness", "Sensory loss", "Hypotension without tachycardia", "Priapism"],
+      "transportPriority": "immediate"
+    },
+    {
+      "id": "allergic-reaction-mild",
+      "name": "Mild Allergic Reaction",
+      "category": "allergic",
+      "keywords": ["hives", "itching", "rash", "allergic", "swelling", "reaction"],
+      "indications": ["Localized urticaria", "Pruritus without respiratory distress", "Minor swelling"],
+      "contraindications": [],
+      "steps": [
+        {"order": 1, "action": "Assess for signs of anaphylaxis", "critical": true},
+        {"order": 2, "action": "Remove allergen if identifiable", "critical": true},
+        {"order": 3, "action": "Diphenhydramine 25-50mg PO/IM/IV", "critical": false, "drugRef": "diphenhydramine"},
+        {"order": 4, "action": "Monitor for progression to anaphylaxis", "critical": true},
+        {"order": 5, "action": "Have epinephrine ready if symptoms progress", "critical": true}
+      ],
+      "medications": [
+        {"drug": "diphenhydramine", "dose": "25-50mg", "route": "PO/IM/IV", "note": "Pediatric: 1mg/kg, max 50mg"}
+      ],
+      "redFlags": ["Progression of symptoms", "Any respiratory involvement", "Hypotension"],
+      "transportPriority": "routine"
+    },
+    {
+      "id": "respiratory-distress",
+      "name": "Respiratory Distress - General",
+      "category": "respiratory",
+      "keywords": ["difficulty breathing", "short of breath", "dyspnea", "can't breathe", "sob", "respiratory distress"],
+      "indications": ["Increased work of breathing", "Hypoxia", "Tachypnea", "Accessory muscle use"],
+      "contraindications": [],
+      "steps": [
+        {"order": 1, "action": "Position of comfort", "critical": true},
+        {"order": 2, "action": "Apply oxygen - target SpO2 94-98%", "critical": true},
+        {"order": 3, "action": "Auscultate lung sounds", "critical": true},
+        {"order": 4, "action": "Obtain 12-lead ECG", "critical": false},
+        {"order": 5, "action": "Treat underlying cause", "critical": true},
+        {"order": 6, "action": "Consider CPAP if available", "critical": false},
+        {"order": 7, "action": "Prepare for advanced airway", "critical": false}
+      ],
+      "medications": [],
+      "redFlags": ["O2 sat < 90% on high-flow O2", "Altered LOC", "Cyanosis", "Silent chest"],
+      "transportPriority": "urgent"
+    },
+    {
+      "id": "chf-pulmonary-edema",
+      "name": "CHF / Pulmonary Edema",
+      "category": "cardiac",
+      "keywords": ["pulmonary edema", "chf", "heart failure", "fluid in lungs", "crackles", "can't breathe lying down"],
+      "indications": ["Crackles/rales", "Jugular venous distension", "Peripheral edema", "Orthopnea"],
+      "contraindications": [],
+      "steps": [
+        {"order": 1, "action": "Sit patient upright with legs dependent", "critical": true},
+        {"order": 2, "action": "High-flow oxygen or CPAP if available", "critical": true},
+        {"order": 3, "action": "12-lead ECG", "critical": true},
+        {"order": 4, "action": "IV access (saline lock, minimal fluid)", "critical": true},
+        {"order": 5, "action": "Nitroglycerin 0.4mg SL if SBP > 100", "critical": false, "drugRef": "nitroglycerin"},
+        {"order": 6, "action": "Consider Furosemide 40-80mg IV if on home Lasix", "critical": false},
+        {"order": 7, "action": "Monitor closely - may decompensate rapidly", "critical": true}
+      ],
+      "medications": [
+        {"drug": "nitroglycerin", "dose": "0.4mg SL q5min", "route": "SL", "note": "Hold if SBP < 100"},
+        {"drug": "furosemide", "dose": "40-80mg", "route": "IV", "note": "Match home dose if known"}
+      ],
+      "redFlags": ["Cardiogenic shock", "Acute MI", "Rapid decompensation"],
+      "transportPriority": "immediate"
+    },
+    {
+      "id": "pain-management",
+      "name": "Pain Management Protocol",
+      "category": "general",
+      "keywords": ["pain", "hurts", "painful", "need something for pain", "severe pain"],
+      "indications": ["Moderate to severe pain", "Trauma", "Burns", "Acute abdomen (after assessment)"],
+      "contraindications": ["Altered LOC", "Respiratory depression", "Hypotension"],
+      "steps": [
+        {"order": 1, "action": "Assess pain using 0-10 scale", "critical": true},
+        {"order": 2, "action": "Identify contraindications", "critical": true},
+        {"order": 3, "action": "Fentanyl 1-2mcg/kg IV or 2mcg/kg IN", "critical": false, "drugRef": "fentanyl"},
+        {"order": 4, "action": "OR Morphine 2-4mg IV", "critical": false, "drugRef": "morphine"},
+        {"order": 5, "action": "Reassess pain and vitals q5min", "critical": true},
+        {"order": 6, "action": "May repeat at 50% dose if needed", "critical": false},
+        {"order": 7, "action": "Monitor respiratory status", "critical": true}
+      ],
+      "medications": [
+        {"drug": "fentanyl", "dose": "1-2mcg/kg IV or 2mcg/kg IN", "route": "IV/IN", "note": "Max 100mcg; fast onset, short duration"},
+        {"drug": "morphine", "dose": "2-4mg", "route": "IV", "note": "Titrate to effect; monitor respirations"}
+      ],
+      "redFlags": ["Respiratory depression", "Hypotension", "Altered LOC"],
+      "transportPriority": "routine"
+    },
+    {
+      "id": "nausea-vomiting",
+      "name": "Nausea / Vomiting Protocol",
+      "category": "general",
+      "keywords": ["nausea", "vomiting", "throwing up", "sick to stomach", "queasy"],
+      "indications": ["Nausea", "Vomiting", "Motion sickness"],
+      "contraindications": [],
+      "steps": [
+        {"order": 1, "action": "Position to prevent aspiration", "critical": true},
+        {"order": 2, "action": "Have suction ready", "critical": true},
+        {"order": 3, "action": "Ondansetron 4mg IV/IM/ODT", "critical": false, "drugRef": "ondansetron"},
+        {"order": 4, "action": "IV access if dehydration suspected", "critical": false},
+        {"order": 5, "action": "Consider NS bolus if prolonged vomiting", "critical": false}
+      ],
+      "medications": [
+        {"drug": "ondansetron", "dose": "4mg", "route": "IV/IM/ODT", "note": "May repeat x1; avoid in long QT"}
+      ],
+      "redFlags": ["Coffee-ground emesis", "Hematemesis", "Severe dehydration"],
+      "transportPriority": "routine"
+    }
+  ]
+}

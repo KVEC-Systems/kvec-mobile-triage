@@ -2,7 +2,10 @@
 
 ## Project Overview
 
-KVEC Triage is an **offline-first** React Native app using Expo that routes patient symptoms to medical specialties via hybrid on-device and cloud LLM inference.
+KVEC Triage is an **offline-first** React Native app using Expo. It supports two modes:
+
+1. **Specialty Routing** - Routes patient symptoms to medical specialties
+2. **First Responder Mode** - EMS protocol retrieval and drug interaction checks for field medics
 
 ## Tech Stack
 
@@ -24,15 +27,21 @@ app/               # Expo Router pages
   diagnostic.tsx   # Multi-turn diagnostic assessment
   chat.tsx         # Follow-up chat with MedGemma
 lib/
-  llm.ts           # LLM service (init, inference, enrichment, fallback)
+  llm.ts           # LLM service (triage + protocol inference)
   cloud.ts         # Cloud inference via ngrok (OpenAI-compatible API)
   download.ts      # Model download from HuggingFace
   setfit.ts        # SetFit ONNX classification (body + head models)
+  protocols.ts     # EMS protocol retrieval service
+  drugs.ts         # Drug interaction and dosing checks
+data/
+  protocols.json   # 20 EMS protocols (NAEMSP/NASEMSO based)
+  drugs.json       # 16 EMS medications with interactions
 evaluation/        # Model evaluation scripts
 ```
 
 ## Key Features
 
+### Specialty Routing Mode
 1. **Symptom Input** - Text input with example symptoms
 2. **Model Download** - Downloads MedGemma GGUF + SetFit ONNX from HuggingFace Hub
 3. **Tiered Inference** - SetFit for fast classification (~100ms), LLM for rich enrichment
@@ -41,6 +50,12 @@ evaluation/        # Model evaluation scripts
 6. **Diagnostic Flow** - Multi-turn assessment with suggested answers
 7. **Chat Screen** - Follow-up questions via MedGemma
 8. **Visit Summary** - Generate shareable provider handoff documents
+
+### First Responder Mode (WIP)
+1. **Protocol Retrieval** - Match medic observations to EMS protocols
+2. **Drug Warnings** - Allergy cross-reactions and contraindication checks
+3. **Dosage Calculator** - Weight-based pediatric dose calculations
+4. **PCR Generation** - Exportable Prehospital Care Report summary
 
 ## Development Commands
 
@@ -85,6 +100,11 @@ To enable faster inference via local GPU:
 
 Warning about 16KB page size alignment for Android 15 - non-blocking for development.
 
+## Supported Protocols (EMS)
+
+Cardiac Arrest/ACLS, STEMI, Chest Pain, Bradycardia, Tachycardia, CHF/Pulmonary Edema, Stroke/CVA, Seizure, Head Injury, Respiratory Distress, Asthma/COPD, Anaphylaxis, Allergic Reaction, Hypoglycemia, Opioid Overdose, Hemorrhage Control, Spinal Immobilization, Pediatric Resuscitation (PALS), Pain Management, Nausea/Vomiting
+
 ## Supported Specialties
 
 Behavioral Health, Cardiology, Dermatology, Gastroenterology, Neurology, Oncology, Orthopedic Surgery, Pain Management, Primary Care, Pulmonology, Rheumatology, Sports Medicine, Urology, Vascular Medicine, Women's Health
+

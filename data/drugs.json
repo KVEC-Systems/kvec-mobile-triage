@@ -1,0 +1,317 @@
+{
+  "drugs": [
+    {
+      "id": "epinephrine",
+      "name": "Epinephrine",
+      "brandNames": ["Adrenalin", "EpiPen"],
+      "class": "Sympathomimetic",
+      "emsIndications": ["Cardiac arrest", "Anaphylaxis", "Severe asthma", "Bradycardia (drip)"],
+      "contraindications": [],
+      "interactions": [
+        {"drug": "beta-blockers", "severity": "moderate", "effect": "May reduce efficacy; higher doses may be needed"},
+        {"drug": "MAOIs", "severity": "severe", "effect": "Potentiated hypertensive effect"},
+        {"drug": "tricyclic-antidepressants", "severity": "moderate", "effect": "Enhanced cardiovascular effects"}
+      ],
+      "dosing": {
+        "cardiac_arrest": {"adult": "1mg IV/IO q3-5min", "pediatric": "0.01mg/kg IV/IO (max 1mg)"},
+        "anaphylaxis": {"adult": "0.3-0.5mg IM", "pediatric": "0.01mg/kg IM (max 0.3mg)"},
+        "bradycardia_drip": {"adult": "2-10mcg/min IV", "pediatric": "0.1-1mcg/kg/min"}
+      },
+      "routes": ["IV", "IO", "IM", "Endotracheal"],
+      "maxDose": "No max in arrest",
+      "commonAllergies": [],
+      "warnings": ["May cause tachyarrhythmias", "Tissue necrosis if extravasation"]
+    },
+    {
+      "id": "aspirin",
+      "name": "Aspirin",
+      "brandNames": ["Bayer", "Ecotrin"],
+      "class": "Antiplatelet / NSAID",
+      "emsIndications": ["Suspected ACS", "STEMI", "Chest pain of cardiac origin"],
+      "contraindications": ["Aspirin allergy", "Active GI bleeding", "Bleeding disorders", "Recent hemorrhagic stroke"],
+      "interactions": [
+        {"drug": "warfarin", "severity": "severe", "effect": "Increased bleeding risk"},
+        {"drug": "heparin", "severity": "moderate", "effect": "Additive bleeding risk"},
+        {"drug": "NSAIDs", "severity": "moderate", "effect": "Increased GI bleeding risk"}
+      ],
+      "dosing": {
+        "acs": {"adult": "324mg PO (chew)", "pediatric": "N/A"}
+      },
+      "routes": ["PO"],
+      "maxDose": "324mg single dose for ACS",
+      "commonAllergies": ["NSAIDs", "Salicylates"],
+      "warnings": ["Do NOT give if aspirin allergy", "Hold if recent GI bleed"]
+    },
+    {
+      "id": "nitroglycerin",
+      "name": "Nitroglycerin",
+      "brandNames": ["Nitrostat", "NitroQuick"],
+      "class": "Nitrate / Vasodilator",
+      "emsIndications": ["Chest pain", "ACS", "Pulmonary edema", "Hypertensive emergency"],
+      "contraindications": ["SBP < 90mmHg", "Hypotension", "Recent PDE5 inhibitor use (Viagra, Cialis, Levitra within 24-48h)", "Right ventricular infarction"],
+      "interactions": [
+        {"drug": "sildenafil", "severity": "severe", "effect": "Profound hypotension - CONTRAINDICATED"},
+        {"drug": "tadalafil", "severity": "severe", "effect": "Profound hypotension - CONTRAINDICATED"},
+        {"drug": "vardenafil", "severity": "severe", "effect": "Profound hypotension - CONTRAINDICATED"},
+        {"drug": "antihypertensives", "severity": "moderate", "effect": "Additive hypotension"}
+      ],
+      "dosing": {
+        "chest_pain": {"adult": "0.4mg SL q5min x3", "pediatric": "N/A"}
+      },
+      "routes": ["SL", "Spray"],
+      "maxDose": "3 doses if BP permits",
+      "commonAllergies": [],
+      "warnings": ["CHECK BP before each dose", "Ask about erectile dysfunction meds"]
+    },
+    {
+      "id": "naloxone",
+      "name": "Naloxone",
+      "brandNames": ["Narcan", "Evzio"],
+      "class": "Opioid Antagonist",
+      "emsIndications": ["Opioid overdose", "Respiratory depression from opioids", "Unknown overdose with opioid features"],
+      "contraindications": ["Hypersensitivity"],
+      "interactions": [],
+      "dosing": {
+        "overdose": {"adult": "0.4-2mg IV/IM or 2-4mg IN", "pediatric": "0.1mg/kg IV/IN (max 2mg)"}
+      },
+      "routes": ["IV", "IM", "IN", "IO"],
+      "maxDose": "10mg total (may need more for fentanyl)",
+      "commonAllergies": [],
+      "warnings": ["May precipitate acute withdrawal", "Patient may become combative", "Renarcotization risk with long-acting opioids"]
+    },
+    {
+      "id": "diphenhydramine",
+      "name": "Diphenhydramine",
+      "brandNames": ["Benadryl"],
+      "class": "Antihistamine (H1 blocker)",
+      "emsIndications": ["Allergic reaction", "Anaphylaxis (adjunct)", "Dystonic reaction"],
+      "contraindications": ["Narrow-angle glaucoma (relative)"],
+      "interactions": [
+        {"drug": "CNS depressants", "severity": "moderate", "effect": "Additive sedation"},
+        {"drug": "MAOIs", "severity": "moderate", "effect": "Increased anticholinergic effects"}
+      ],
+      "dosing": {
+        "allergic_reaction": {"adult": "25-50mg IV/IM/PO", "pediatric": "1mg/kg IV/IM (max 50mg)"}
+      },
+      "routes": ["IV", "IM", "PO"],
+      "maxDose": "50mg per dose",
+      "commonAllergies": [],
+      "warnings": ["May cause sedation", "Anticholinergic effects in elderly"]
+    },
+    {
+      "id": "albuterol",
+      "name": "Albuterol",
+      "brandNames": ["Ventolin", "Proventil", "ProAir"],
+      "class": "Beta-2 Agonist / Bronchodilator",
+      "emsIndications": ["Asthma", "COPD exacerbation", "Bronchospasm", "Anaphylaxis (bronchospasm component)"],
+      "contraindications": [],
+      "interactions": [
+        {"drug": "beta-blockers", "severity": "moderate", "effect": "Antagonistic effect - may reduce bronchodilation"}
+      ],
+      "dosing": {
+        "bronchospasm": {"adult": "2.5mg nebulizer", "pediatric": "2.5mg nebulizer"}
+      },
+      "routes": ["NEB", "MDI"],
+      "maxDose": "Continuous nebulizer in severe cases",
+      "commonAllergies": [],
+      "warnings": ["May cause tachycardia, tremor", "Use with caution in cardiac patients"]
+    },
+    {
+      "id": "amiodarone",
+      "name": "Amiodarone",
+      "brandNames": ["Cordarone", "Pacerone"],
+      "class": "Antiarrhythmic (Class III)",
+      "emsIndications": ["VF/pVT refractory to defibrillation", "Stable wide-complex tachycardia"],
+      "contraindications": ["Severe sinus node dysfunction", "2nd/3rd degree heart block (without pacemaker)", "Cardiogenic shock"],
+      "interactions": [
+        {"drug": "digoxin", "severity": "severe", "effect": "Increased digoxin levels - toxicity risk"},
+        {"drug": "warfarin", "severity": "severe", "effect": "Increased INR - bleeding risk"},
+        {"drug": "QT-prolonging drugs", "severity": "severe", "effect": "Additive QT prolongation - torsades risk"}
+      ],
+      "dosing": {
+        "cardiac_arrest": {"adult": "300mg IV/IO, then 150mg", "pediatric": "5mg/kg IV/IO (max 300mg)"},
+        "stable_vtach": {"adult": "150mg IV over 10 min", "pediatric": "5mg/kg over 20-60 min"}
+      },
+      "routes": ["IV", "IO"],
+      "maxDose": "2.2g/24 hours",
+      "commonAllergies": ["Iodine (contains iodine)"],
+      "warnings": ["Hypotension with rapid infusion", "Contains iodine"]
+    },
+    {
+      "id": "atropine",
+      "name": "Atropine",
+      "brandNames": ["AtroPen"],
+      "class": "Anticholinergic",
+      "emsIndications": ["Symptomatic bradycardia", "Organophosphate poisoning"],
+      "contraindications": ["Tachycardia", "Glaucoma (relative)"],
+      "interactions": [
+        {"drug": "anticholinergics", "severity": "moderate", "effect": "Additive anticholinergic effects"}
+      ],
+      "dosing": {
+        "bradycardia": {"adult": "0.5mg IV q3-5min (max 3mg)", "pediatric": "0.02mg/kg IV (min 0.1mg, max 0.5mg)"},
+        "organophosphate": {"adult": "2-4mg IV, repeat as needed", "pediatric": "0.05mg/kg IV"}
+      },
+      "routes": ["IV", "IO", "IM", "Endotracheal"],
+      "maxDose": "3mg for bradycardia; no max for organophosphate",
+      "commonAllergies": [],
+      "warnings": ["Ineffective in infranodal blocks", "May worsen ischemia if tachycardia results"]
+    },
+    {
+      "id": "adenosine",
+      "name": "Adenosine",
+      "brandNames": ["Adenocard"],
+      "class": "Antiarrhythmic",
+      "emsIndications": ["SVT", "Narrow-complex regular tachycardia", "Wide-complex regular tachycardia of uncertain origin"],
+      "contraindications": ["2nd/3rd degree heart block", "Sick sinus syndrome", "Known WPW with AF"],
+      "interactions": [
+        {"drug": "theophylline", "severity": "moderate", "effect": "Antagonistic - may not work"},
+        {"drug": "carbamazepine", "severity": "moderate", "effect": "Increased heart block risk"},
+        {"drug": "dipyridamole", "severity": "moderate", "effect": "Potentiated effect - use lower dose"}
+      ],
+      "dosing": {
+        "svt": {"adult": "6mg rapid IV, then 12mg if needed", "pediatric": "0.1mg/kg rapid IV (max 6mg), then 0.2mg/kg (max 12mg)"}
+      },
+      "routes": ["IV"],
+      "maxDose": "12mg per dose",
+      "commonAllergies": [],
+      "warnings": ["Must push rapidly with flush", "Warn patient of brief chest discomfort", "Half-life ~10 seconds"]
+    },
+    {
+      "id": "midazolam",
+      "name": "Midazolam",
+      "brandNames": ["Versed"],
+      "class": "Benzodiazepine",
+      "emsIndications": ["Seizures (status epilepticus)", "Sedation", "Anxiolysis"],
+      "contraindications": ["Acute narrow-angle glaucoma", "Severe respiratory depression", "Shock"],
+      "interactions": [
+        {"drug": "opioids", "severity": "severe", "effect": "Profound respiratory depression"},
+        {"drug": "CNS depressants", "severity": "severe", "effect": "Additive sedation and respiratory depression"},
+        {"drug": "alcohol", "severity": "severe", "effect": "Additive CNS depression"}
+      ],
+      "dosing": {
+        "seizure": {"adult": "10mg IM or 5mg IV/IN", "pediatric": "0.2mg/kg IM (max 10mg) or 0.1mg/kg IV"},
+        "sedation": {"adult": "1-2mg IV titrated", "pediatric": "0.05-0.1mg/kg IV"}
+      },
+      "routes": ["IV", "IM", "IN"],
+      "maxDose": "10mg per dose for seizures",
+      "commonAllergies": ["Benzodiazepines"],
+      "warnings": ["Respiratory depression risk", "Have flumazenil available", "Reduce dose in elderly"]
+    },
+    {
+      "id": "morphine",
+      "name": "Morphine",
+      "brandNames": ["MS Contin", "Roxanol"],
+      "class": "Opioid Analgesic",
+      "emsIndications": ["Severe pain", "STEMI (with caution)", "Pulmonary edema"],
+      "contraindications": ["Hypotension", "Respiratory depression", "Head injury with altered LOC"],
+      "interactions": [
+        {"drug": "benzodiazepines", "severity": "severe", "effect": "Profound respiratory depression"},
+        {"drug": "MAOIs", "severity": "severe", "effect": "Risk of serotonin syndrome, respiratory depression"},
+        {"drug": "CNS depressants", "severity": "severe", "effect": "Additive respiratory depression"}
+      ],
+      "dosing": {
+        "pain": {"adult": "2-4mg IV q5min", "pediatric": "0.1mg/kg IV (max 5mg)"}
+      },
+      "routes": ["IV", "IM"],
+      "maxDose": "10mg total prehospital (typical)",
+      "commonAllergies": ["Opioids"],
+      "warnings": ["Monitor respirations", "Have naloxone ready", "May cause hypotension"]
+    },
+    {
+      "id": "fentanyl",
+      "name": "Fentanyl",
+      "brandNames": ["Sublimaze"],
+      "class": "Opioid Analgesic",
+      "emsIndications": ["Severe pain", "Procedural sedation adjunct"],
+      "contraindications": ["Severe respiratory depression", "Shock"],
+      "interactions": [
+        {"drug": "benzodiazepines", "severity": "severe", "effect": "Profound respiratory depression"},
+        {"drug": "MAOIs", "severity": "severe", "effect": "Risk of serotonin syndrome"},
+        {"drug": "CNS depressants", "severity": "severe", "effect": "Additive respiratory depression"}
+      ],
+      "dosing": {
+        "pain": {"adult": "1-2mcg/kg IV or 2mcg/kg IN", "pediatric": "1mcg/kg IV/IN"}
+      },
+      "routes": ["IV", "IN", "IM"],
+      "maxDose": "100mcg per dose (typical prehospital)",
+      "commonAllergies": ["Opioids"],
+      "warnings": ["Faster onset, shorter duration than morphine", "Chest wall rigidity with high doses"]
+    },
+    {
+      "id": "dextrose",
+      "name": "Dextrose (D50 / D10)",
+      "brandNames": ["D50W", "D10W"],
+      "class": "Glucose",
+      "emsIndications": ["Hypoglycemia", "Altered mental status with BG < 60"],
+      "contraindications": [],
+      "interactions": [],
+      "dosing": {
+        "hypoglycemia": {"adult": "25g (50mL D50 or 250mL D10)", "pediatric": "0.5-1g/kg (D10 preferred)"}
+      },
+      "routes": ["IV"],
+      "maxDose": "As needed to restore euglycemia",
+      "commonAllergies": [],
+      "warnings": ["D50 is hypertonic - tissue necrosis if extravasation", "Use D10 for pediatrics/neonates"]
+    },
+    {
+      "id": "glucagon",
+      "name": "Glucagon",
+      "brandNames": ["GlucaGen", "Baqsimi"],
+      "class": "Hyperglycemic Agent",
+      "emsIndications": ["Hypoglycemia (when no IV access)", "Beta-blocker overdose", "Calcium channel blocker overdose"],
+      "contraindications": ["Pheochromocytoma", "Insulinoma"],
+      "interactions": [
+        {"drug": "warfarin", "severity": "moderate", "effect": "May increase anticoagulant effect"}
+      ],
+      "dosing": {
+        "hypoglycemia": {"adult": "1mg IM/SQ/IN", "pediatric": "0.5mg IM if < 20kg, 1mg if > 20kg"},
+        "beta_blocker_od": {"adult": "3-5mg IV then 3-5mg/hr infusion", "pediatric": "0.05mg/kg IV"}
+      },
+      "routes": ["IM", "SQ", "IN", "IV"],
+      "maxDose": "1mg for hypoglycemia",
+      "commonAllergies": [],
+      "warnings": ["Slower onset than IV dextrose", "May cause vomiting - aspiration risk"]
+    },
+    {
+      "id": "ondansetron",
+      "name": "Ondansetron",
+      "brandNames": ["Zofran"],
+      "class": "Antiemetic (5-HT3 antagonist)",
+      "emsIndications": ["Nausea", "Vomiting"],
+      "contraindications": ["Long QT syndrome", "Congenital long QT"],
+      "interactions": [
+        {"drug": "QT-prolonging drugs", "severity": "moderate", "effect": "Additive QT prolongation"}
+      ],
+      "dosing": {
+        "nausea": {"adult": "4mg IV/IM or 4-8mg ODT", "pediatric": "0.1mg/kg IV (max 4mg)"}
+      },
+      "routes": ["IV", "IM", "PO (ODT)"],
+      "maxDose": "8mg per dose",
+      "commonAllergies": [],
+      "warnings": ["QT prolongation risk", "Avoid in long QT syndrome"]
+    },
+    {
+      "id": "ipratropium",
+      "name": "Ipratropium",
+      "brandNames": ["Atrovent"],
+      "class": "Anticholinergic Bronchodilator",
+      "emsIndications": ["COPD exacerbation", "Asthma (adjunct to albuterol)"],
+      "contraindications": ["Peanut/soy allergy (HFA formulation)"],
+      "interactions": [],
+      "dosing": {
+        "bronchospasm": {"adult": "0.5mg nebulizer", "pediatric": "0.25-0.5mg nebulizer"}
+      },
+      "routes": ["NEB", "MDI"],
+      "maxDose": "0.5mg q20min x3",
+      "commonAllergies": ["Peanut", "Soy"],
+      "warnings": ["Often combined with albuterol (DuoNeb)", "Check for peanut/soy allergy"]
+    }
+  ],
+  "commonAllergyCrossReactions": [
+    {"allergen": "Aspirin", "crossReacts": ["NSAIDs", "Ibuprofen", "Naproxen", "Ketorolac"]},
+    {"allergen": "Penicillin", "crossReacts": ["Amoxicillin", "Ampicillin", "Cephalosporins (10% cross-reactivity)"]},
+    {"allergen": "Sulfa", "crossReacts": ["Sulfamethoxazole", "Furosemide (rare)", "Thiazides (rare)"]},
+    {"allergen": "Opioids", "crossReacts": ["True allergy rare - usually side effects", "Cross-reactivity between opioids variable"]},
+    {"allergen": "Iodine", "crossReacts": ["Amiodarone contains iodine"]}
+  ]
+}

@@ -866,3 +866,407 @@ Always consult a healthcare professional.`;
   return plan;
 }
 
+// =============================================================================
+// FIRST RESPONDER / PROTOCOL MODE
+// =============================================================================
+
+/**
+ * Patient information for protocol retrieval
+ */
+export interface FieldPatientInfo {
+  age?: number;
+  sex?: 'male' | 'female';
+  weight?: number;         // kg - for pediatric dosing
+  allergies: string[];     // Critical for drug warnings
+  vitals?: {
+    bp?: string;           // "160/90"
+    hr?: number;           // 88
+    spo2?: number;         // 94
+    rr?: number;           // 16
+  };
+  currentMeds?: string[];  // For drug interaction checks
+}
+
+/**
+ * Protocol result from LLM inference
+ */
+export interface ProtocolInferenceResult {
+  protocolId: string;
+  protocolName: string;
+  confidence: number;
+  urgency: 'immediate' | 'urgent' | 'routine';
+  interventions: string[];
+  drugWarnings: string[];
+  dosageInfo: string[];
+  redFlags: string[];
+  inferenceTime: number;
+  usedLLM: boolean;
+}
+
+/**
+ * Run protocol-focused inference on medic observation
+ * Uses LLM to enrich protocol selection with interventions and warnings
+ */
+export async function runProtocolInference(
+  observation: string,
+  patientInfo: FieldPatientInfo
+): Promise<ProtocolInferenceResult> {
+  const startTime = Date.now();
+
+  // Build prompt for protocol retrieval
+  const prompt = buildProtocolPrompt(observation, patientInfo);
+  
+  // If LLM not available, use fallback
+  if (!llamaContext) {
+    console.log('LLM not available, using keyword-based protocol matching');
+    return runFallbackProtocol(observation, patientInfo, Date.now() - startTime);
+  }
+
+  try {
+    console.log('=== PROTOCOL INFERENCE ===');
+    console.log('Observation:', observation);
+    
+    const response = await llamaContext.completion({
+      prompt,
+      n_predict: 150,      // More tokens for interventions
+      temperature: 0.1,    // Deterministic
+      top_p: 0.85,
+      stop: ['</s>', '\n\n\n'],
+    });
+
+    const inferenceTime = Date.now() - startTime;
+    console.log('Raw response:', response.text);
+    console.log('Inference time:', inferenceTime, 'ms');
+    
+    const result = parseProtocolResponse(response.text, patientInfo);
+    console.log('=== END PROTOCOL INFERENCE ===');
+    
+    return {
+      ...result,
+      inferenceTime,
+      usedLLM: true,
+    };
+  } catch (error) {
+    console.error('Protocol inference error:', error);
+    return runFallbackProtocol(observation, patientInfo, Date.now() - startTime);
+  }
+}
+
+/**
+ * Build prompt for protocol retrieval
+ */
+function buildProtocolPrompt(observation: string, patientInfo: FieldPatientInfo): string {
+  const ageStr = patientInfo.age ? `${patientInfo.age}yo` : 'adult';
+  const sexStr = patientInfo.sex || 'unknown';
+  const allergiesStr = patientInfo.allergies.length > 0 
+    ? patientInfo.allergies.join(', ') 
+    : 'NKDA';
+  
+  let vitalsStr = 'not obtained';
+  if (patientInfo.vitals) {
+    const parts = [];
+    if (patientInfo.vitals.bp) parts.push(`BP ${patientInfo.vitals.bp}`);
+    if (patientInfo.vitals.hr) parts.push(`HR ${patientInfo.vitals.hr}`);
+    if (patientInfo.vitals.spo2) parts.push(`SpO2 ${patientInfo.vitals.spo2}%`);
+    if (patientInfo.vitals.rr) parts.push(`RR ${patientInfo.vitals.rr}`);
+    if (parts.length > 0) vitalsStr = parts.join(', ');
+  }
+
+  return `<bos><start_of_turn>user
+MEDIC FIELD REPORT
+Patient: ${ageStr} ${sexStr}
+Allergies: ${allergiesStr}
+Vitals: ${vitalsStr}
+Observation: "${observation}"
+
+Identify protocol and interventions.
+Format: PROTOCOL|URGENCY|INTERVENTIONS|DRUG_WARNINGS|DOSAGES|RED_FLAGS
+<end_of_turn>
+<start_of_turn>model
+`;
+}
+
+/**
+ * Parse protocol-focused LLM response
+ */
+function parseProtocolResponse(
+  response: string, 
+  patientInfo: FieldPatientInfo
+): Omit<ProtocolInferenceResult, 'inferenceTime' | 'usedLLM'> {
+  const lines = response.split('\n');
+  
+  let protocolId = 'general-assessment';
+  let protocolName = 'General Assessment';
+  let confidence = 0.6;
+  let urgency: 'immediate' | 'urgent' | 'routine' = 'routine';
+  let interventions: string[] = [];
+  let drugWarnings: string[] = [];
+  let dosageInfo: string[] = [];
+  let redFlags: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    if (/PROTOCOL:/i.test(trimmed)) {
+      const value = trimmed.replace(/.*PROTOCOL:\s*/i, '').trim();
+      const matched = matchProtocolName(value);
+      protocolId = matched.id;
+      protocolName = matched.name;
+      confidence = matched.confidence;
+    } else if (/URGENCY:/i.test(trimmed)) {
+      const value = trimmed.replace(/.*URGENCY:\s*/i, '').toLowerCase();
+      if (value.includes('immediate')) urgency = 'immediate';
+      else if (value.includes('urgent')) urgency = 'urgent';
+      else urgency = 'routine';
+    } else if (/INTERVENTIONS:/i.test(trimmed)) {
+      const value = trimmed.replace(/.*INTERVENTIONS:\s*/i, '');
+      interventions = value.split(/[,;]/).map(i => i.trim()).filter(i => i.length > 0);
+    } else if (/DRUG_WARNINGS:/i.test(trimmed) || /WARNINGS:/i.test(trimmed)) {
+      const value = trimmed.replace(/.*(?:DRUG_)?WARNINGS:\s*/i, '').trim();
+      if (value.toLowerCase() !== 'none' && value.length > 0) {
+        drugWarnings = value.split(/[,;]/).map(w => w.trim()).filter(w => w.length > 0);
+      }
+    } else if (/DOSAGES:/i.test(trimmed) || /DOSES:/i.test(trimmed)) {
+      const value = trimmed.replace(/.*DOSAGE?S?:\s*/i, '').trim();
+      if (value.toLowerCase() !== 'none' && value.length > 0) {
+        dosageInfo = value.split(/[,;]/).map(d => d.trim()).filter(d => d.length > 0);
+      }
+    } else if (/RED_FLAGS:/i.test(trimmed)) {
+      const value = trimmed.replace(/.*RED_FLAGS:\s*/i, '').trim();
+      if (value.toLowerCase() !== 'none' && value.length > 0) {
+        redFlags = value.split(/[,;]/).map(f => f.trim()).filter(f => f.length > 0);
+      }
+    }
+  }
+
+  // Add allergy-based warnings
+  if (patientInfo.allergies.length > 0) {
+    for (const allergy of patientInfo.allergies) {
+      if (allergy.toLowerCase() === 'aspirin' && 
+          (protocolId.includes('stemi') || protocolId.includes('chest'))) {
+        drugWarnings.push(`🚫 ASPIRIN contraindicated - patient allergy`);
+      }
+    }
+  }
+
+  // Check vitals for drug contraindications
+  if (patientInfo.vitals?.bp) {
+    const [systolic] = patientInfo.vitals.bp.split('/').map(Number);
+    if (systolic && systolic < 90) {
+      drugWarnings.push(`⚠️ Hypotensive (SBP ${systolic}) - hold vasodilators`);
+    }
+  }
+
+  // Fallbacks
+  if (interventions.length === 0) {
+    interventions = ['Establish IV access', 'Monitor vitals', 'Obtain 12-lead ECG if indicated'];
+  }
+
+  return {
+    protocolId,
+    protocolName,
+    confidence,
+    urgency,
+    interventions,
+    drugWarnings,
+    dosageInfo,
+    redFlags,
+  };
+}
+
+/**
+ * Match protocol name from LLM output to known protocols
+ */
+function matchProtocolName(input: string): { id: string; name: string; confidence: number } {
+  const inputLower = input.toLowerCase();
+  
+  const protocolMap: Array<{ keywords: string[]; id: string; name: string }> = [
+    { keywords: ['stemi', 'st elevation', 'heart attack', 'mi'], id: 'stemi', name: 'STEMI Protocol' },
+    { keywords: ['cardiac arrest', 'acls', 'cpr', 'pulseless', 'vfib'], id: 'cardiac-arrest', name: 'Cardiac Arrest / ACLS' },
+    { keywords: ['anaphylaxis', 'allergic', 'epipen'], id: 'anaphylaxis', name: 'Anaphylaxis Protocol' },
+    { keywords: ['stroke', 'cva', 'face droop', 'slurred'], id: 'stroke', name: 'Stroke / CVA Protocol' },
+    { keywords: ['hypoglycemia', 'low blood sugar', 'diabetic'], id: 'hypoglycemia', name: 'Hypoglycemia Protocol' },
+    { keywords: ['opioid', 'overdose', 'narcan', 'naloxone', 'heroin', 'fentanyl'], id: 'opioid-overdose', name: 'Opioid Overdose Protocol' },
+    { keywords: ['seizure', 'convulsion', 'status epilepticus'], id: 'seizure', name: 'Seizure Protocol' },
+    { keywords: ['asthma', 'copd', 'wheezing', 'bronchospasm'], id: 'asthma-copd', name: 'Asthma / COPD Exacerbation' },
+    { keywords: ['chest pain', 'angina'], id: 'chest-pain-general', name: 'Chest Pain - General Assessment' },
+    { keywords: ['hemorrhage', 'bleeding', 'trauma', 'blood loss'], id: 'trauma-hemorrhage', name: 'Hemorrhage Control Protocol' },
+    { keywords: ['bradycardia', 'slow heart'], id: 'bradycardia', name: 'Symptomatic Bradycardia' },
+    { keywords: ['tachycardia', 'svt', 'fast heart', 'rapid'], id: 'tachycardia-stable', name: 'Stable Tachycardia' },
+    { keywords: ['pediatric', 'child', 'baby', 'infant', 'pals'], id: 'pediatric-resuscitation', name: 'Pediatric Resuscitation (PALS)' },
+    { keywords: ['head injury', 'tbi', 'concussion'], id: 'head-injury', name: 'Traumatic Head Injury' },
+    { keywords: ['spine', 'c-spine', 'neck injury'], id: 'spinal-immobilization', name: 'Spinal Immobilization' },
+    { keywords: ['respiratory distress', 'dyspnea', 'short of breath'], id: 'respiratory-distress', name: 'Respiratory Distress - General' },
+    { keywords: ['chf', 'pulmonary edema', 'heart failure'], id: 'chf-pulmonary-edema', name: 'CHF / Pulmonary Edema' },
+    { keywords: ['pain', 'painful'], id: 'pain-management', name: 'Pain Management Protocol' },
+    { keywords: ['nausea', 'vomiting'], id: 'nausea-vomiting', name: 'Nausea / Vomiting Protocol' },
+  ];
+
+  for (const protocol of protocolMap) {
+    if (protocol.keywords.some(k => inputLower.includes(k))) {
+      return { id: protocol.id, name: protocol.name, confidence: 0.85 };
+    }
+  }
+
+  return { id: 'general-assessment', name: 'General Assessment', confidence: 0.5 };
+}
+
+/**
+ * Fallback protocol matching using keywords only
+ */
+function runFallbackProtocol(
+  observation: string,
+  patientInfo: FieldPatientInfo,
+  elapsedMs: number
+): ProtocolInferenceResult {
+  const obsLower = observation.toLowerCase();
+  
+  // Match based on keywords
+  if (obsLower.includes('chest pain') || obsLower.includes('crushing') || obsLower.includes('heart attack')) {
+    const hasAspirinAllergy = patientInfo.allergies.some(a => 
+      a.toLowerCase().includes('aspirin')
+    );
+    return {
+      protocolId: 'stemi',
+      protocolName: 'STEMI Protocol',
+      confidence: 0.75,
+      urgency: 'immediate',
+      interventions: ['12-lead ECG', 'IV access', 'Aspirin 324mg if no allergy', 'Nitro if SBP > 90'],
+      drugWarnings: hasAspirinAllergy ? ['🚫 ASPIRIN contraindicated - patient allergy'] : [],
+      dosageInfo: ['Aspirin 324mg PO', 'NTG 0.4mg SL q5min'],
+      redFlags: ['Hypotension', 'Diaphoresis', 'Altered LOC'],
+      inferenceTime: elapsedMs,
+      usedLLM: false,
+    };
+  }
+
+  if (obsLower.includes('not breathing') || obsLower.includes('unresponsive') || obsLower.includes('no pulse')) {
+    return {
+      protocolId: 'cardiac-arrest',
+      protocolName: 'Cardiac Arrest / ACLS',
+      confidence: 0.8,
+      urgency: 'immediate',
+      interventions: ['Begin CPR 100-120/min', 'Attach AED', 'Establish IV/IO', 'Epinephrine q3-5min'],
+      drugWarnings: [],
+      dosageInfo: ['Epinephrine 1mg IV/IO', 'Amiodarone 300mg if VF/pVT'],
+      redFlags: ['Prolonged downtime', 'Unknown cause'],
+      inferenceTime: elapsedMs,
+      usedLLM: false,
+    };
+  }
+
+  if (obsLower.includes('allergic') || obsLower.includes('bee sting') || obsLower.includes('swelling') && obsLower.includes('throat')) {
+    return {
+      protocolId: 'anaphylaxis',
+      protocolName: 'Anaphylaxis Protocol',
+      confidence: 0.8,
+      urgency: 'immediate',
+      interventions: ['Remove allergen', 'Epinephrine IM', 'IV access', 'Diphenhydramine'],
+      drugWarnings: [],
+      dosageInfo: ['Epinephrine 0.3-0.5mg IM', 'Benadryl 50mg IV/IM'],
+      redFlags: ['Stridor', 'Rapid progression', 'Hypotension'],
+      inferenceTime: elapsedMs,
+      usedLLM: false,
+    };
+  }
+
+  if (obsLower.includes('overdose') || obsLower.includes('heroin') || obsLower.includes('fentanyl') || obsLower.includes('not breathing')) {
+    return {
+      protocolId: 'opioid-overdose',
+      protocolName: 'Opioid Overdose Protocol',
+      confidence: 0.75,
+      urgency: 'immediate',
+      interventions: ['BVM ventilation', 'Naloxone 2mg IN or 0.4mg IV', 'Monitor for renarcotization'],
+      drugWarnings: ['May precipitate withdrawal'],
+      dosageInfo: ['Naloxone 2-4mg IN or 0.4-2mg IV'],
+      redFlags: ['Fentanyl may need higher doses', 'Renarcotization risk'],
+      inferenceTime: elapsedMs,
+      usedLLM: false,
+    };
+  }
+
+  // Default fallback
+  return {
+    protocolId: 'general-assessment',
+    protocolName: 'General Assessment',
+    confidence: 0.4,
+    urgency: 'routine',
+    interventions: ['Complete patient assessment', 'Obtain vitals', 'Establish IV if indicated', 'Transport for evaluation'],
+    drugWarnings: patientInfo.allergies.map(a => `Patient allergic to: ${a}`),
+    dosageInfo: [],
+    redFlags: [],
+    inferenceTime: elapsedMs,
+    usedLLM: false,
+  };
+}
+
+/**
+ * Generate a Prehospital Care Report (PCR) summary
+ */
+export function generatePCRSummary(
+  observation: string,
+  patientInfo: FieldPatientInfo,
+  protocolResult: ProtocolInferenceResult,
+  interventionsPerformed: string[] = []
+): string {
+  const timestamp = new Date().toLocaleString();
+  const ageStr = patientInfo.age ? `${patientInfo.age} y/o` : 'Unknown age';
+  const sexStr = patientInfo.sex === 'male' ? 'Male' : patientInfo.sex === 'female' ? 'Female' : '';
+  
+  let vitalsStr = 'Not obtained';
+  if (patientInfo.vitals) {
+    const parts = [];
+    if (patientInfo.vitals.bp) parts.push(`BP: ${patientInfo.vitals.bp}`);
+    if (patientInfo.vitals.hr) parts.push(`HR: ${patientInfo.vitals.hr}`);
+    if (patientInfo.vitals.spo2) parts.push(`SpO2: ${patientInfo.vitals.spo2}%`);
+    if (patientInfo.vitals.rr) parts.push(`RR: ${patientInfo.vitals.rr}`);
+    vitalsStr = parts.join(' | ');
+  }
+
+  let pcr = `PREHOSPITAL CARE REPORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Generated: ${timestamp}
+
+PATIENT INFORMATION
+  ${ageStr} ${sexStr}
+  Allergies: ${patientInfo.allergies.length > 0 ? patientInfo.allergies.join(', ') : 'NKDA'}
+
+VITAL SIGNS
+  ${vitalsStr}
+
+CHIEF COMPLAINT / MEDIC OBSERVATION
+  "${observation}"
+
+PROTOCOL ACTIVATED
+  ${protocolResult.protocolName}
+  Priority: ${protocolResult.urgency.toUpperCase()}
+`;
+
+  if (protocolResult.drugWarnings.length > 0) {
+    pcr += `
+⚠️ DRUG WARNINGS
+${protocolResult.drugWarnings.map(w => `  ${w}`).join('\n')}
+`;
+  }
+
+  if (interventionsPerformed.length > 0) {
+    pcr += `
+INTERVENTIONS PERFORMED
+${interventionsPerformed.map(i => `  ✓ ${i}`).join('\n')}
+`;
+  }
+
+  if (protocolResult.dosageInfo.length > 0) {
+    pcr += `
+MEDICATIONS ADMINISTERED
+${protocolResult.dosageInfo.map(d => `  • ${d}`).join('\n')}
+`;
+  }
+
+  pcr += `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Generated by KVEC Field Protocol Assistant
+For medical professional use only.`;
+
+  return pcr;
+}
