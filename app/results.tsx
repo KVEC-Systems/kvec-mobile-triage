@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { initializeSetFit, classifySymptom, isSetFitReady, type SetFitResult } from '../lib/setfit';
@@ -94,6 +95,7 @@ export default function ResultsScreen() {
   const { symptom } = useLocalSearchParams<{ symptom: string }>();
   const [isLoading, setIsLoading] = useState(true);
   const [result, setResult] = useState<UnifiedResult | null>(null);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (symptom) {
@@ -126,7 +128,7 @@ export default function ResultsScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <ActivityIndicator size="large" color="#2563eb" />
         <Text style={styles.loadingText}>Analyzing symptoms...</Text>
         <Text style={styles.loadingSubtext}>Running on-device classification</Text>
@@ -145,7 +147,7 @@ export default function ResultsScreen() {
   const isEnriching = result!.isEnriching;
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32 }}>
       <View style={styles.symptomCard}>
         <Text style={styles.symptomLabel}>Patient's symptoms:</Text>
         <Text style={styles.symptomText}>"{symptom}"</Text>

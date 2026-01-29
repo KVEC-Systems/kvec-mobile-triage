@@ -7,6 +7,7 @@ import expo.modules.kotlin.Promise
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Backend
+import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.SamplerConfig
 import kotlinx.coroutines.*
@@ -15,6 +16,7 @@ private const val TAG = "LiteRTLM"
 
 class LiteRTLMModule : Module() {
     private var engine: Engine? = null
+    private var conversation: Conversation? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun definition() = ModuleDefinition {
@@ -37,7 +39,13 @@ class LiteRTLMModule : Module() {
                     engine = Engine(config)
                     engine?.initialize()
                     
-                    sendEvent("onLog", mapOf("message" to "Engine initialized"))
+                    // Create a reusable conversation
+                    val convConfig = ConversationConfig(
+                        samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = 0.7)
+                    )
+                    conversation = engine?.createConversation(convConfig)
+                    
+                    sendEvent("onLog", mapOf("message" to "Engine and conversation initialized"))
                     withContext(Dispatchers.Main) { promise.resolve(true) }
                 } catch (e: Exception) {
                     Log.e(TAG, "Engine creation failed: ${e.message}", e)
@@ -49,24 +57,18 @@ class LiteRTLMModule : Module() {
             }
         }
 
-        // Generate response
+        // Generate response using existing conversation
         AsyncFunction("generateResponse") { prompt: String, promise: Promise ->
             scope.launch {
                 try {
-                    val eng = engine ?: run {
+                    val conv = conversation ?: run {
                         withContext(Dispatchers.Main) {
-                            promise.reject("NO_ENGINE", "Not initialized", null)
+                            promise.reject("NO_CONVERSATION", "Not initialized", null)
                         }
                         return@launch
                     }
 
-                    val convConfig = ConversationConfig(
-                        samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = 0.7)
-                    )
-                    
-                    val conv = eng.createConversation(convConfig)
                     val response = conv.sendMessage(prompt)
-                    conv.close()
                     
                     withContext(Dispatchers.Main) { promise.resolve(response.toString()) }
                 } catch (e: Exception) {
@@ -81,6 +83,8 @@ class LiteRTLMModule : Module() {
         // Release resources
         AsyncFunction("releaseEngine") { promise: Promise ->
             try {
+                conversation?.close()
+                conversation = null
                 engine?.close()
                 engine = null
                 promise.resolve(true)
@@ -89,6 +93,6 @@ class LiteRTLMModule : Module() {
             }
         }
 
-        Function("isInitialized") { engine != null }
+        Function("isInitialized") { conversation != null }
     }
 }

@@ -132,7 +132,7 @@ Please provide a helpful, medically accurate response. Be concise but thorough. 
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerTitle: 'MedGemma AI' }} />
       <KeyboardAvoidingView
         style={styles.keyboardView}

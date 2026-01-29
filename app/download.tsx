@@ -9,6 +9,7 @@ import {
   TextInput,
   type AppStateStatus,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -25,6 +26,7 @@ import {
 } from '../lib/download';
 
 export default function DownloadScreen() {
+  const insets = useSafeAreaInsets();
   const [status, setStatus] = useState<'checking' | 'ready' | 'downloading' | 'complete' | 'error' | 'needsToken'>('checking');
   const [progress, setProgress] = useState<DownloadProgress | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -118,7 +120,7 @@ export default function DownloadScreen() {
 
   if (status === 'checking') {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <ActivityIndicator size="large" color="#2563eb" />
         <Text style={styles.statusText}>Checking model status...</Text>
       </View>
@@ -127,7 +129,7 @@ export default function DownloadScreen() {
 
   if (status === 'complete') {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <Ionicons name="checkmark-circle" size={80} color="#16a34a" />
         <Text style={styles.title}>Model Ready!</Text>
         <Text style={styles.subtitle}>Launching KVEC Triage...</Text>
@@ -136,7 +138,7 @@ export default function DownloadScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.iconContainer}>
         <Ionicons name="cloud-download" size={80} color="#2563eb" />
       </View>
