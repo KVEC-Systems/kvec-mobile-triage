@@ -26,9 +26,9 @@ let activeDownload: DownloadResumable | null = null;
 const HF_BASE = 'https://huggingface.co';
 const MODELS = {
   gguf: {
-    repo: 'ekim1394/medgemma-4b-iq2_xxs-gguf',
-    file: 'medgemma-4b-iq2_xxs.gguf',
-    size: 1100000000, // ~1.1GB (smaller than Q2_K)
+    repo: 'bartowski/google_gemma-3n-E2B-it-GGUF',
+    file: 'google_gemma-3n-E2B-it-Q2_K.gguf',
+    size: 1890000000, // ~1.89GB (Q2_K quantization)
   },
   // SetFit ONNX models for fast classification
   specialtyOnnx: {
@@ -182,7 +182,7 @@ export async function downloadGGUFModel(
         const current = downloadProgress.totalBytesWritten;
         const total = downloadProgress.totalBytesExpectedToWrite || expectedSize;
         onProgress({
-          modelName: 'MedGemma IQ2_XXS',
+          modelName: 'Gemma 3n E2B Q2_K',
           current,
           total,
           percent: Math.round((current / total) * 100),

@@ -1,6 +1,6 @@
 /**
  * LLM Service for on-device inference using llama.rn
- * Uses quantized MedGemma 4B model (Q4_K_M) for clinical triage
+ * Uses quantized Gemma 3n E2B model (Q2_K) for clinical triage
  */
 
 import { initLlama, LlamaContext } from 'llama.rn';
@@ -224,7 +224,7 @@ export async function initializeLLM(): Promise<boolean> {
       );
     }
 
-    console.log('Loading MedGemma model...');
+    console.log('Loading Gemma 3n model...');
     const startTime = Date.now();
 
     llamaContext = await initLlama({
@@ -263,7 +263,7 @@ export async function runTriage(symptom: string): Promise<TriageResult> {
   }
 
   try {
-    // Build prompt for MedGemma
+    // Build prompt for Gemma 3n
     const prompt = buildTriagePrompt(symptom);
     console.log('=== LLM TRIAGE ===');
     console.log('Input symptom:', symptom);
@@ -299,7 +299,7 @@ export async function runTriage(symptom: string): Promise<TriageResult> {
 }
 
 /**
- * Build the prompt for MedGemma triage - COMPACT version for speed
+ * Build the prompt for Gemma 3n triage - COMPACT version for speed
  */
 function buildTriagePrompt(symptom: string): string {
   return `<bos><start_of_turn>user
