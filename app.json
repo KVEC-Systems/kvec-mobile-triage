@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "KVEC Triage",
-    "slug": "kvec-triage",
+    "slug": "medstar-triage",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
@@ -40,6 +40,7 @@
       "eas": {
         "projectId": "04cf7c49-af5e-449c-8bb0-6730e4a527da"
       }
-    }
+    },
+    "owner": "ekim1394"
   }
 }

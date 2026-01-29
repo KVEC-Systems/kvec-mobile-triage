@@ -913,6 +913,27 @@ export async function runProtocolInference(
   patientInfo: FieldPatientInfo
 ): Promise<ProtocolInferenceResult> {
   const startTime = Date.now();
+  const obsLower = observation.toLowerCase();
+
+  // FAST PATH: Check for high-confidence emergency keywords
+  // Skip LLM entirely for clear-cut emergencies (sub-100ms)
+  const emergencyKeywords: { pattern: RegExp; protocolId: string }[] = [
+    { pattern: /\b(no pulse|pulseless|cardiac arrest|cpr|unresponsive.*not breathing)\b/i, protocolId: 'cardiac-arrest' },
+    { pattern: /\b(anaphylaxis|throat.*swell|epi.*pen|severe.*allergic)\b/i, protocolId: 'anaphylaxis' },
+    { pattern: /\b(overdose|od|narcan|naloxone|pinpoint.*pupils|opioid)\b/i, protocolId: 'opioid-overdose' },
+    { pattern: /\b(stemi|st.*elevation|12.*lead.*positive)\b/i, protocolId: 'stemi' },
+    { pattern: /\b(stroke|cva|facial.*droop|slurred.*speech|arm.*drift)\b/i, protocolId: 'stroke' },
+    { pattern: /\b(seizure|convuls|postictal|tonic.*clonic)\b/i, protocolId: 'seizure' },
+    { pattern: /\b(hypoglyc|low.*sugar|blood.*glucose.*\d{1,2}\b|bg.*\d{1,2}\b)\b/i, protocolId: 'hypoglycemia' },
+  ];
+
+  for (const { pattern, protocolId } of emergencyKeywords) {
+    if (pattern.test(observation)) {
+      console.log(`FAST PATH: Matched ${protocolId} via keyword`);
+      const result = runFallbackProtocol(observation, patientInfo, Date.now() - startTime);
+      return { ...result, rawResponse: `[Fast path: keyword matched ${protocolId}]` };
+    }
+  }
 
   // Build prompt for protocol retrieval
   const prompt = buildProtocolPrompt(observation, patientInfo);
@@ -929,10 +950,10 @@ export async function runProtocolInference(
     
     const response = await llamaContext.completion({
       prompt,
-      n_predict: 1024,     // High token limit for interventions
-      temperature: 0.1,    // Deterministic
+      n_predict: 300,        // Reduced for speed (~10-15s instead of 40-50s)
+      temperature: 0.1,      // Deterministic
       top_p: 0.85,
-      stop: ['</s>', '\n\n\n'],
+      stop: ['</s>', '\n\n\n', 'RED_FLAGS', '**RED'],  // Stop earlier
     });
 
     const inferenceTime = Date.now() - startTime;
