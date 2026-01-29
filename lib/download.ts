@@ -19,6 +19,34 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Storage key for resumable download state
 const DOWNLOAD_STATE_KEY = 'litertlm_download_state';
 
+// HuggingFace token for gated models (stored in AsyncStorage)
+const HF_TOKEN_KEY = 'huggingface_token';
+let hfToken: string | null = null;
+
+/**
+ * Set HuggingFace token for downloading gated models
+ */
+export async function setHuggingFaceToken(token: string): Promise<void> {
+  hfToken = token;
+  await AsyncStorage.setItem(HF_TOKEN_KEY, token);
+}
+
+/**
+ * Get stored HuggingFace token
+ */
+export async function getHuggingFaceToken(): Promise<string | null> {
+  if (hfToken) return hfToken;
+  hfToken = await AsyncStorage.getItem(HF_TOKEN_KEY);
+  return hfToken;
+}
+
+/**
+ * Check if HuggingFace token is set
+ */
+export async function hasHuggingFaceToken(): Promise<boolean> {
+  return (await getHuggingFaceToken()) !== null;
+}
+
 // Active download reference
 let activeDownload: DownloadResumable | null = null;
 
@@ -207,10 +235,18 @@ export async function downloadLLMModel(
     } else {
       // Start fresh download
       console.log(`Downloading LiteRT model from ${url}`);
+      
+      // Add HF token for gated models
+      const token = await getHuggingFaceToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       activeDownload = createDownloadResumable(
         url,
         fileUri,
-        {},
+        { headers },
         progressCallback
       );
       result = await activeDownload.downloadAsync();

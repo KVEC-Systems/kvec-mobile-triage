@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   AppState,
+  TextInput,
   type AppStateStatus,
 } from 'react-native';
 import { router } from 'expo-router';
@@ -18,14 +19,17 @@ import {
   formatBytes,
   pauseDownload,
   hasResumableDownload,
+  setHuggingFaceToken,
+  hasHuggingFaceToken,
   type DownloadProgress,
 } from '../lib/download';
 
 export default function DownloadScreen() {
-  const [status, setStatus] = useState<'checking' | 'ready' | 'downloading' | 'complete' | 'error'>('checking');
+  const [status, setStatus] = useState<'checking' | 'ready' | 'downloading' | 'complete' | 'error' | 'needsToken'>('checking');
   const [progress, setProgress] = useState<DownloadProgress | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [downloadSize, setDownloadSize] = useState<number>(0);
+  const [tokenInput, setTokenInput] = useState<string>('');
   const appState = useRef(AppState.currentState);
 
   // Handle app state changes to pause/resume download
@@ -49,7 +53,7 @@ export default function DownloadScreen() {
     async function check() {
       const modelStatus = await checkModelStatus();
       
-      // GGUF model is required for triage (SetFit ONNX not yet working)
+      // LiteRT model is required for triage
       if (modelStatus.litertlm.exists) {
         // Model exists, can proceed to main screen
         setStatus('complete');
@@ -58,10 +62,10 @@ export default function DownloadScreen() {
         const size = await getRemainingDownloadSize();
         setDownloadSize(size);
         
-        // Check if there's a download to resume
-        const hasResumable = await hasResumableDownload();
-        if (hasResumable) {
-          setStatus('ready');
+        // Check if HuggingFace token is set (required for gated models)
+        const hasToken = await hasHuggingFaceToken();
+        if (!hasToken) {
+          setStatus('needsToken');
         } else {
           setStatus('ready');
         }
@@ -104,6 +108,13 @@ export default function DownloadScreen() {
     // Skip to main screen without model (will use fallback triage)
     router.replace('/');
   }, []);
+
+  const saveToken = useCallback(async () => {
+    if (tokenInput.trim()) {
+      await setHuggingFaceToken(tokenInput.trim());
+      setStatus('ready');
+    }
+  }, [tokenInput]);
 
   if (status === 'checking') {
     return (
@@ -154,6 +165,41 @@ export default function DownloadScreen() {
             <Text style={styles.skipButtonText}>Skip for now (limited features)</Text>
           </TouchableOpacity>
         </>
+      )}
+
+      {status === 'needsToken' && (
+        <View style={styles.tokenContainer}>
+          <Text style={styles.tokenTitle}>HuggingFace Token Required</Text>
+          <Text style={styles.tokenDesc}>
+            The Gemma model requires accepting Google's license.{"\n"}
+            1. Go to huggingface.co/google/gemma-3n-E2B-it-litert-lm{"\n"}
+            2. Log in and accept the license{"\n"}
+            3. Create a Read token at huggingface.co/settings/tokens
+          </Text>
+          
+          <TextInput
+            style={styles.tokenInput}
+            placeholder="hf_xxxxxxxxxxxx"
+            placeholderTextColor="#94a3b8"
+            value={tokenInput}
+            onChangeText={setTokenInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          
+          <TouchableOpacity 
+            style={[styles.downloadButton, !tokenInput.trim() && styles.buttonDisabled]} 
+            onPress={saveToken}
+            disabled={!tokenInput.trim()}
+          >
+            <Ionicons name="key" size={24} color="#fff" />
+            <Text style={styles.downloadButtonText}>Save Token</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.skipButton} onPress={skipDownload}>
+            <Text style={styles.skipButtonText}>Skip for now (limited features)</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {status === 'downloading' && progress && (
@@ -343,5 +389,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  tokenContainer: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  tokenTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 12,
+  },
+  tokenDesc: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'left',
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  tokenInput: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    backgroundColor: '#fff',
+    marginBottom: 16,
+    color: '#1e293b',
+  },
+  buttonDisabled: {
+    backgroundColor: '#94a3b8',
   },
 });
