@@ -227,9 +227,13 @@ export async function initializeLLM(): Promise<boolean> {
     console.log('Loading Gemma 3n LiteRT model via MediaPipe...');
     const startTime = Date.now();
 
+    // Convert file:// URI to raw path (MediaPipe expects filesystem path, not URI)
+    const modelPath = modelFile.uri.replace('file://', '');
+    console.log('Model path:', modelPath);
+
     // Create MediaPipe LLM model (returns native handle)
     modelHandle = await ExpoLlmMediapipe.createModel(
-      modelFile.uri,
+      modelPath,
       512,    // maxTokens
       40,     // topK
       0.1,    // temperature
