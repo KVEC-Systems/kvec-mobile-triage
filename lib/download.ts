@@ -1,6 +1,6 @@
 /**
  * Model Download Service
- * Downloads MedSigLIP text encoder for semantic search
+ * Downloads MedGemma GGUF for on-device chat inference
  */
 
 import {
@@ -15,7 +15,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Storage keys
-const DOWNLOAD_STATE_KEY = 'medsiglip_download_state';
+const DOWNLOAD_STATE_KEY = 'medgemma_download_state';
 
 // Active download reference
 let activeDownload: DownloadResumable | null = null;
@@ -24,17 +24,11 @@ let activeDownload: DownloadResumable | null = null;
 const HF_BASE = 'https://huggingface.co';
 
 // Model configuration
-// Using INT8 quantized model for smaller download (~434MB vs 1.7GB)
 const MODELS = {
-  medsiglipOnnx: {
-    repo: 'ekim1394/medsiglip-text-onnx',
-    file: 'medsiglip-text-int8.onnx',
-    size: 434000000, // ~434MB (INT8 quantized)
-  },
-  medsiglipTokenizer: {
-    repo: 'ekim1394/medsiglip-text-onnx',
-    file: 'medsiglip-tokenizer.json',
-    size: 700000, // ~700KB
+  medgemmaGguf: {
+    repo: 'ekim1394/medgemma-4b-iq2_xxs-gguf',
+    file: 'medgemma-4b-iq2_xxs.gguf',
+    size: 1310000000, // ~1.31GB
   },
 };
 
@@ -46,11 +40,9 @@ export interface DownloadProgress {
 }
 
 export interface ModelStatus {
-  medsiglip: {
-    onnxExists: boolean;
-    tokenizerExists: boolean;
-    onnxPath: string;
-    tokenizerPath: string;
+  medgemma: {
+    ggufExists: boolean;
+    ggufPath: string;
   };
 }
 
@@ -73,30 +65,22 @@ function getDownloadUrl(modelKey: keyof typeof MODELS): string {
  * Check which models are already downloaded
  */
 export async function checkModelStatus(): Promise<ModelStatus> {
-  const onnxPath = getModelPath('medsiglip-text-int8.onnx');
-  const tokenizerPath = getModelPath('medsiglip-tokenizer.json');
+  const ggufPath = getModelPath('medgemma-4b-iq2_xxs.gguf');
   
   try {
-    const [onnxInfo, tokenizerInfo] = await Promise.all([
-      getInfoAsync(onnxPath),
-      getInfoAsync(tokenizerPath),
-    ]);
+    const ggufInfo = await getInfoAsync(ggufPath);
     
     return {
-      medsiglip: {
-        onnxExists: onnxInfo.exists,
-        tokenizerExists: tokenizerInfo.exists,
-        onnxPath,
-        tokenizerPath,
+      medgemma: {
+        ggufExists: ggufInfo.exists,
+        ggufPath,
       },
     };
   } catch {
     return {
-      medsiglip: {
-        onnxExists: false,
-        tokenizerExists: false,
-        onnxPath,
-        tokenizerPath,
+      medgemma: {
+        ggufExists: false,
+        ggufPath,
       },
     };
   }
@@ -162,22 +146,17 @@ async function downloadFile(
 }
 
 /**
- * Download MedSigLIP models
+ * Download MedGemma model
  */
-export async function downloadMedSigLIPModels(
+export async function downloadMedGemmaModel(
   onProgress?: (progress: DownloadProgress) => void
 ): Promise<boolean> {
   try {
-    // Download ONNX model
-    await downloadFile('medsiglipOnnx', onProgress);
-    
-    // Download tokenizer
-    await downloadFile('medsiglipTokenizer', onProgress);
-    
-    console.log('MedSigLIP models download complete');
+    await downloadFile('medgemmaGguf', onProgress);
+    console.log('MedGemma model download complete');
     return true;
   } catch (error) {
-    console.error('Failed to download MedSigLIP models:', error);
+    console.error('Failed to download MedGemma model:', error);
     return false;
   }
 }
@@ -202,16 +181,12 @@ export async function pauseDownload(): Promise<void> {
  */
 export async function getRemainingDownloadSize(): Promise<number> {
   const status = await checkModelStatus();
-  let total = 0;
   
-  if (!status.medsiglip.onnxExists) {
-    total += MODELS.medsiglipOnnx.size;
-  }
-  if (!status.medsiglip.tokenizerExists) {
-    total += MODELS.medsiglipTokenizer.size;
+  if (!status.medgemma.ggufExists) {
+    return MODELS.medgemmaGguf.size;
   }
   
-  return total;
+  return 0;
 }
 
 /**
@@ -229,5 +204,12 @@ export function formatBytes(bytes: number): string {
  */
 export async function areModelsReady(): Promise<boolean> {
   const status = await checkModelStatus();
-  return status.medsiglip.onnxExists && status.medsiglip.tokenizerExists;
+  return status.medgemma.ggufExists;
+}
+
+/**
+ * Get the path to the downloaded GGUF model
+ */
+export function getGgufModelPath(): string {
+  return `${documentDirectory}models/${MODELS.medgemmaGguf.file}`;
 }

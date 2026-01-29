@@ -11,7 +11,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
   checkModelStatus,
-  downloadMedSigLIPModels,
+  downloadMedGemmaModel,
   getRemainingDownloadSize,
   formatBytes,
   type DownloadProgress,
@@ -31,7 +31,7 @@ export default function DownloadScreen() {
     async function check() {
       try {
         const status = await checkModelStatus();
-        const isComplete = status.medsiglip.onnxExists && status.medsiglip.tokenizerExists;
+        const isComplete = status.medgemma.ggufExists;
         
         if (isComplete) {
           setState('complete');
@@ -55,7 +55,7 @@ export default function DownloadScreen() {
     setErrorMessage(null);
     
     try {
-      const success = await downloadMedSigLIPModels((prog) => {
+      const success = await downloadMedGemmaModel((prog) => {
         setProgress(prog);
       });
       
@@ -89,12 +89,12 @@ export default function DownloadScreen() {
         return (
           <>
             <View style={styles.iconContainer}>
-              <Ionicons name="cloud-download" size={64} color="#059669" />
+              <Ionicons name="cloud-download" size={64} color="#6366f1" />
             </View>
             <Text style={styles.title}>Download AI Model</Text>
             <Text style={styles.description}>
-              The Protocol Navigator needs to download the MedSigLIP AI model 
-              for semantic search. This enables offline protocol search.
+              MedGemma is a medical AI assistant. Download the model 
+              for on-device chat (works offline).
             </Text>
             <View style={styles.sizeInfo}>
               <Ionicons name="download-outline" size={18} color="#64748b" />
@@ -174,7 +174,7 @@ export default function DownloadScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#0f172a',
   },
   content: {
     flex: 1,
@@ -188,13 +188,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1e293b',
+    color: '#f1f5f9',
     marginBottom: 12,
     textAlign: 'center',
   },
   description: {
     fontSize: 16,
-    color: '#64748b',
+    color: '#94a3b8',
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 24,
@@ -205,18 +205,18 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 32,
     padding: 12,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#1e293b',
     borderRadius: 8,
   },
   sizeText: {
     fontSize: 14,
-    color: '#64748b',
+    color: '#94a3b8',
   },
   downloadButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#059669',
+    backgroundColor: '#6366f1',
     paddingHorizontal: 32,
     paddingVertical: 16,
     borderRadius: 12,
@@ -234,23 +234,23 @@ const styles = StyleSheet.create({
   progressBar: {
     width: '100%',
     height: 8,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: '#1e293b',
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 8,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#059669',
+    backgroundColor: '#6366f1',
   },
   progressText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#059669',
+    color: '#6366f1',
   },
   statusText: {
     fontSize: 16,
-    color: '#64748b',
+    color: '#94a3b8',
     marginTop: 16,
   },
   errorText: {

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,61 +13,93 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { areModelsAvailable, initializeSemanticSearch } from '../lib/semantic-search';
+import { areModelsReady } from '../lib/download';
+import { initializeLLM, generateResponse, isLLMReady, type ChatMessage } from '../lib/llm';
 
-export default function HomeScreen() {
-  const [query, setQuery] = useState('');
+export default function ChatScreen() {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingModels, setIsCheckingModels] = useState(true);
-  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [isLoadingModel, setIsLoadingModel] = useState(false);
+  const [streamingText, setStreamingText] = useState('');
+  const scrollViewRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
 
-  // Check if models exist on mount, redirect to download if not
+  // Check if models exist on mount
   useEffect(() => {
     async function checkAndLoadModels() {
       try {
-        const available = await areModelsAvailable();
+        const available = await areModelsReady();
         
         if (!available) {
           router.replace('/download');
           return;
         }
         
-        // Models exist - pre-load semantic search
         setIsCheckingModels(false);
-        setIsLoadingModels(true);
-        await initializeSemanticSearch().catch(() => {
-          // Failed to load, will show error later
-        });
+        setIsLoadingModel(true);
+        
+        // Initialize LLM
+        await initializeLLM();
       } catch (error) {
         console.error('Error checking models:', error);
       } finally {
         setIsCheckingModels(false);
-        setIsLoadingModels(false);
+        setIsLoadingModel(false);
       }
     }
     checkAndLoadModels();
   }, []);
 
-  const handleSubmit = useCallback(async () => {
-    if (!query.trim()) return;
+  const handleSend = useCallback(async () => {
+    if (!inputText.trim() || isLoading) return;
     
+    const userMessage: ChatMessage = { role: 'user', content: inputText.trim() };
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
+    setInputText('');
     setIsLoading(true);
+    setStreamingText('');
     
-    // Navigate to results with query
-    router.push({
-      pathname: '/results',
-      params: { query: query.trim() },
-    });
-    
-    setIsLoading(false);
-  }, [query]);
+    try {
+      // Add system message for medical context on first message
+      const promptMessages: ChatMessage[] = messages.length === 0 
+        ? [{ role: 'system', content: 'You are MedGemma, a helpful medical AI assistant. Provide accurate, helpful health information. Always recommend consulting a healthcare professional for medical decisions.' }, ...newMessages]
+        : newMessages;
+      
+      let fullResponse = '';
+      
+      await generateResponse(promptMessages, (token) => {
+        fullResponse += token;
+        setStreamingText(fullResponse);
+      });
+      
+      const assistantMessage: ChatMessage = { role: 'assistant', content: fullResponse };
+      setMessages([...newMessages, assistantMessage]);
+      setStreamingText('');
+    } catch (error) {
+      console.error('Error generating response:', error);
+      const errorMessage: ChatMessage = { 
+        role: 'assistant', 
+        content: 'Sorry, something went wrong. Please try again.' 
+      };
+      setMessages([...newMessages, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [inputText, messages, isLoading]);
 
-  // Show loading while checking model status
+  // Auto-scroll to bottom
+  useEffect(() => {
+    scrollViewRef.current?.scrollToEnd({ animated: true });
+  }, [messages, streamingText]);
+
+  // Loading state
   if (isCheckingModels) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#059669" />
+        <ActivityIndicator size="large" color="#6366f1" />
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
@@ -78,74 +110,87 @@ export default function HomeScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
-        <View style={styles.header}>
-          <Ionicons name="book" size={64} color="#059669" />
-          <Text style={styles.title}>Protocol Navigator</Text>
-          <Text style={styles.subtitle}>
-            {isLoadingModels ? 'Loading AI model...' : 'Offline semantic search for clinical guidelines'}
-          </Text>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <View style={styles.headerContent}>
+          <Ionicons name="medical" size={28} color="#6366f1" />
+          <Text style={styles.headerTitle}>MedGemma</Text>
         </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Search clinical protocols</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="e.g., crushing chest pain, child fever, difficulty breathing..."
-            placeholderTextColor="#94a3b8"
-            value={query}
-            onChangeText={setQuery}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-          />
-
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={[styles.submitButton, !query.trim() && styles.submitButtonDisabled]}
-              onPress={handleSubmit}
-              disabled={!query.trim() || isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="search" size={20} color="#fff" />
-                  <Text style={styles.submitButtonText}>Search Protocols</Text>
-                </>
-              )}
-            </TouchableOpacity>
+        {isLoadingModel && (
+          <Text style={styles.loadingModelText}>Loading model...</Text>
+        )}
+      </View>
+      
+      {/* Messages */}
+      <ScrollView 
+        ref={scrollViewRef}
+        style={styles.messagesContainer}
+        contentContainerStyle={styles.messagesContent}
+      >
+        {messages.length === 0 && !isLoading && (
+          <View style={styles.emptyState}>
+            <Ionicons name="chatbubbles-outline" size={48} color="#94a3b8" />
+            <Text style={styles.emptyTitle}>Start a conversation</Text>
+            <Text style={styles.emptySubtitle}>
+              Ask any health-related questions
+            </Text>
           </View>
-        </View>
-
-        <View style={styles.examples}>
-          <Text style={styles.examplesTitle}>Example searches:</Text>
-          {[
-            "crushing chest pain",
-            "child with high fever",
-            "difficulty breathing at rest",
-            "severe headache sudden onset",
-            "uncontrolled bleeding",
-            "suspected stroke symptoms",
-          ].map((example, i) => (
-            <TouchableOpacity 
-              key={i} 
-              style={styles.exampleItem}
-              onPress={() => setQuery(example)}
-            >
-              <Ionicons name="add-circle-outline" size={16} color="#64748b" />
-              <Text style={styles.exampleText}>{example}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.infoCard}>
-          <Ionicons name="information-circle" size={20} color="#059669" />
-          <Text style={styles.infoText}>
-            Search is powered by MedSigLIP AI embeddings. All processing happens on-device - no internet required.
-          </Text>
-        </View>
+        )}
+        
+        {messages.map((msg, idx) => (
+          <View
+            key={idx}
+            style={[
+              styles.messageBubble,
+              msg.role === 'user' ? styles.userBubble : styles.assistantBubble,
+            ]}
+          >
+            <Text style={[
+              styles.messageText,
+              msg.role === 'user' ? styles.userText : styles.assistantText,
+            ]}>
+              {msg.content}
+            </Text>
+          </View>
+        ))}
+        
+        {/* Streaming response */}
+        {streamingText && (
+          <View style={[styles.messageBubble, styles.assistantBubble]}>
+            <Text style={[styles.messageText, styles.assistantText]}>
+              {streamingText}
+            </Text>
+          </View>
+        )}
+        
+        {/* Loading indicator */}
+        {isLoading && !streamingText && (
+          <View style={[styles.messageBubble, styles.assistantBubble]}>
+            <ActivityIndicator size="small" color="#6366f1" />
+          </View>
+        )}
       </ScrollView>
+      
+      {/* Input area */}
+      <View style={[styles.inputContainer, { paddingBottom: insets.bottom + 8 }]}>
+        <TextInput
+          style={styles.textInput}
+          placeholder="Type your message..."
+          placeholderTextColor="#94a3b8"
+          value={inputText}
+          onChangeText={setInputText}
+          multiline
+          maxLength={1000}
+          editable={!isLoading && isLLMReady()}
+        />
+        <TouchableOpacity
+          style={[styles.sendButton, (!inputText.trim() || isLoading) && styles.sendButtonDisabled]}
+          onPress={handleSend}
+          disabled={!inputText.trim() || isLoading}
+        >
+          <Ionicons name="send" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -153,122 +198,117 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#0f172a',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#0f172a',
   },
   loadingText: {
     fontSize: 16,
-    color: '#64748b',
+    color: '#94a3b8',
     marginTop: 12,
-  },
-  scrollContent: {
-    padding: 20,
   },
   header: {
-    alignItems: 'center',
-    marginBottom: 32,
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1e293b',
-    marginTop: 12,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#64748b',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  inputContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#334155',
-    marginBottom: 12,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    minHeight: 100,
-    backgroundColor: '#f8fafc',
-    color: '#1e293b',
-  },
-  buttonRow: {
+  headerContent: {
     flexDirection: 'row',
-    marginTop: 16,
+    alignItems: 'center',
+    gap: 10,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#f1f5f9',
+  },
+  loadingModelText: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 4,
+  },
+  messagesContainer: {
+    flex: 1,
+  },
+  messagesContent: {
+    padding: 16,
     gap: 12,
   },
-  submitButton: {
+  emptyState: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#059669',
-    borderRadius: 12,
-    paddingVertical: 14,
-    gap: 8,
-  },
-  submitButtonDisabled: {
-    backgroundColor: '#94a3b8',
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  examples: {
-    marginTop: 24,
-  },
-  examplesTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748b',
-    marginBottom: 12,
-  },
-  exampleItem: {
-    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    gap: 8,
+    marginTop: 100,
   },
-  exampleText: {
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#e2e8f0',
+    marginTop: 16,
+  },
+  emptySubtitle: {
     fontSize: 14,
-    color: '#475569',
-    flex: 1,
+    color: '#94a3b8',
+    marginTop: 4,
   },
-  infoCard: {
+  messageBubble: {
+    maxWidth: '85%',
+    padding: 12,
+    borderRadius: 16,
+  },
+  userBubble: {
+    backgroundColor: '#6366f1',
+    alignSelf: 'flex-end',
+    borderBottomRightRadius: 4,
+  },
+  assistantBubble: {
+    backgroundColor: '#334155',
+    alignSelf: 'flex-start',
+    borderBottomLeftRadius: 4,
+  },
+  messageText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  userText: {
+    color: '#fff',
+  },
+  assistantText: {
+    color: '#e2e8f0',
+  },
+  inputContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    padding: 12,
     gap: 10,
-    marginTop: 24,
-    padding: 16,
-    backgroundColor: '#ecfdf5',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#a7f3d0',
+    backgroundColor: '#1e293b',
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
   },
-  infoText: {
+  textInput: {
     flex: 1,
-    fontSize: 13,
-    color: '#065f46',
-    lineHeight: 20,
+    backgroundColor: '#334155',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: '#f1f5f9',
+    maxHeight: 100,
+  },
+  sendButton: {
+    width: 44,
+    height: 44,
+    backgroundColor: '#6366f1',
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sendButtonDisabled: {
+    backgroundColor: '#475569',
   },
 });

@@ -2,48 +2,40 @@
 
 ## Project Overview
 
-Protocol Navigator is an **offline-first** React Native app using Expo for semantic search of clinical guidelines.
+MedGemma Chat is an **offline-first** React Native chat app using Expo for on-device medical AI conversations.
 
 **Core Functionality:**
-1. User types a symptom (e.g., "crushing chest pain")
-2. App embeds the query using **MedSigLIP** text encoder
-3. App performs vector search (cosine similarity) against bundled protocols
-4. App displays matching guideline text instantly
+1. User types a health question
+2. App runs MedGemma-4B via llama.rn (GGUF format)
+3. Streaming responses appear in real-time
+4. All inference runs locally - no internet required
 
 ## Tech Stack
 
 - **Framework**: Expo SDK 54 + React Native 0.81.5
 - **Routing**: expo-router v6 (file-based)
-- **Embeddings**: MedSigLIP (google/medsiglip-448) text encoder via ONNX
-- **Runtime**: onnxruntime-react-native for on-device inference
-- **Data**: epfl-llm/guidelines dataset (WHO, CDC, NICE sources)
+- **LLM**: MedGemma-4B (IQ2_XXS quantized, ~1.3GB)
+- **Runtime**: llama.rn for on-device GGUF inference
 - **Build**: EAS Build for iOS/Android
 
 ## Project Structure
 
 ```
-app/               # Expo Router pages
+app/
   _layout.tsx      # Root layout
-  index.tsx        # Home - semantic search input
+  index.tsx        # Chat interface
   download.tsx     # Model download screen
-  results.tsx      # Protocol search results
 lib/
-  semantic-search.ts  # ONNX inference + cosine similarity
-  download.ts         # Model download from HuggingFace
-assets/
-  protocols.json      # Pre-embedded protocol database (bundled)
-scripts/
-  build_vector_db.py  # Generate embeddings from guidelines
-  requirements.txt    # Python dependencies
+  llm.ts           # LLM initialization + streaming inference
+  download.ts      # Model download from HuggingFace
 ```
 
 ## Key Features
 
-1. **Semantic Search** - AI-powered protocol matching
-2. **Offline-First** - All inference runs on-device
-3. **Multi-Source** - WHO, CDC, NICE guidelines
-4. **Expandable Results** - View full protocol text
-5. **Source Links** - Access original guideline URLs
+1. **On-Device LLM** - MedGemma runs entirely on device
+2. **Streaming Responses** - Real-time token-by-token output
+3. **Offline-First** - Works without internet after download
+4. **Dark Theme** - Modern chat UI with dark mode
 
 ## Development Commands
 
@@ -66,37 +58,6 @@ Downloaded to `[DocumentDirectory]/models/`:
 
 | File | Source | Size |
 |------|--------|------|
-| `medsiglip-text.onnx` | MedSigLIP text encoder | ~350MB |
-| `medsiglip-tokenizer.json` | Tokenizer vocabulary | ~500KB |
+| `medgemma-4b-iq2_xxs.gguf` | MedGemma-4B | ~1.3GB |
 
-Bundled with app:
-
-| File | Description |
-|------|-------------|
-| `assets/protocols.json` | Pre-embedded protocol database |
-
-## Generating Protocol Embeddings
-
-1. Install Python dependencies:
-   ```bash
-   cd scripts
-   pip install -r requirements.txt
-   ```
-
-2. Run the ingestion script:
-   ```bash
-   python build_vector_db.py
-   ```
-
-3. Upload ONNX model to HuggingFace:
-   ```bash
-   huggingface-cli upload ekim1394/medsiglip-text-onnx models/medsiglip-text.onnx
-   huggingface-cli upload ekim1394/medsiglip-text-onnx models/medsiglip-tokenizer.json
-   ```
-
-## Protocol Sources
-
-- **WHO** - World Health Organization guidelines
-- **CDC** - Centers for Disease Control guidelines
-- **NICE** - National Institute for Health and Care Excellence
-- **ICRC** - International Committee of the Red Cross
+HuggingFace repo: `ekim1394/medgemma-4b-iq2_xxs-gguf`
