@@ -88,6 +88,15 @@ export default function HomeScreen() {
           </Text>
         </View>
 
+        {/* Mode Toggle */}
+        <TouchableOpacity 
+          style={styles.modeToggle}
+          onPress={() => router.replace('/field-report')}
+        >
+          <Ionicons name="medkit" size={16} color="#dc2626" />
+          <Text style={styles.modeToggleText}>Switch to First Responder Mode</Text>
+        </TouchableOpacity>
+
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Describe your symptoms</Text>
           <TextInput
@@ -248,5 +257,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#475569',
     flex: 1,
+  },
+  modeToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 16,
+    paddingVertical: 10,
+    backgroundColor: '#fef2f2',
+    borderRadius: 8,
+  },
+  modeToggleText: {
+    fontSize: 14,
+    color: '#dc2626',
+    fontWeight: '500',
   },
 });
