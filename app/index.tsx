@@ -13,64 +13,61 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { checkModelStatus } from '../lib/download';
-import { initializeSetFit } from '../lib/setfit';
+import { areModelsAvailable, initializeSemanticSearch } from '../lib/semantic-search';
 
 export default function HomeScreen() {
-  const [symptom, setSymptom] = useState('');
+  const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isCheckingModel, setIsCheckingModel] = useState(true);
-  const [isLoadingModel, setIsLoadingModel] = useState(false);
+  const [isCheckingModels, setIsCheckingModels] = useState(true);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
   const insets = useSafeAreaInsets();
 
-  // Check if GGUF model exists on mount, redirect to download if not
+  // Check if models exist on mount, redirect to download if not
   useEffect(() => {
-    async function checkAndLoadModel() {
+    async function checkAndLoadModels() {
       try {
-        const status = await checkModelStatus();
+        const available = await areModelsAvailable();
         
-        if (!status.litertlm.exists) {
+        if (!available) {
           router.replace('/download');
           return;
         }
         
-        // Model exists - try to pre-load SetFit (non-blocking)
-        setIsCheckingModel(false);
-        setIsLoadingModel(true);
-        await initializeSetFit().catch(() => {
-          // SetFit failed, will use LLM fallback - that's ok
+        // Models exist - pre-load semantic search
+        setIsCheckingModels(false);
+        setIsLoadingModels(true);
+        await initializeSemanticSearch().catch(() => {
+          // Failed to load, will show error later
         });
       } catch (error) {
         console.error('Error checking models:', error);
       } finally {
-        setIsCheckingModel(false);
-        setIsLoadingModel(false);
+        setIsCheckingModels(false);
+        setIsLoadingModels(false);
       }
     }
-    checkAndLoadModel();
+    checkAndLoadModels();
   }, []);
 
   const handleSubmit = useCallback(async () => {
-    if (!symptom.trim()) return;
+    if (!query.trim()) return;
     
     setIsLoading(true);
     
-    // Navigate to results with symptom
+    // Navigate to results with query
     router.push({
       pathname: '/results',
-      params: { symptom: symptom.trim() },
+      params: { query: query.trim() },
     });
     
     setIsLoading(false);
-  }, [symptom]);
-
-
+  }, [query]);
 
   // Show loading while checking model status
-  if (isCheckingModel) {
+  if (isCheckingModels) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color="#059669" />
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
@@ -83,57 +80,38 @@ export default function HomeScreen() {
     >
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.header}>
-          <Ionicons name="medical" size={64} color="#2563eb" />
-          <Text style={styles.title}>KVEC Triage</Text>
+          <Ionicons name="book" size={64} color="#059669" />
+          <Text style={styles.title}>Protocol Navigator</Text>
           <Text style={styles.subtitle}>
-            {isLoadingModel ? 'Loading AI model...' : 'Offline symptom-to-specialty routing'}
+            {isLoadingModels ? 'Loading AI model...' : 'Offline semantic search for clinical guidelines'}
           </Text>
         </View>
 
-        {/* Mode Toggle */}
-        <TouchableOpacity 
-          style={styles.modeToggle}
-          onPress={() => router.replace('/field-report')}
-        >
-          <Ionicons name="medkit" size={16} color="#dc2626" />
-          <Text style={styles.modeToggleText}>Switch to First Responder Mode</Text>
-        </TouchableOpacity>
-
-        {/* Direct Chat Button */}
-        <TouchableOpacity 
-          style={styles.chatButton}
-          onPress={() => router.push('/direct-chat')}
-        >
-          <Ionicons name="chatbubbles" size={16} color="#6366f1" />
-          <Text style={styles.chatButtonText}>Chat with AI</Text>
-        </TouchableOpacity>
-
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>Describe your symptoms</Text>
+          <Text style={styles.label}>Search clinical protocols</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="e.g., burning pain when I pee, chest pain after eating..."
+            placeholder="e.g., crushing chest pain, child fever, difficulty breathing..."
             placeholderTextColor="#94a3b8"
-            value={symptom}
-            onChangeText={setSymptom}
+            value={query}
+            onChangeText={setQuery}
             multiline
-            numberOfLines={4}
+            numberOfLines={3}
             textAlignVertical="top"
           />
 
           <View style={styles.buttonRow}>
-
             <TouchableOpacity
-              style={[styles.submitButton, !symptom.trim() && styles.submitButtonDisabled]}
+              style={[styles.submitButton, !query.trim() && styles.submitButtonDisabled]}
               onPress={handleSubmit}
-              disabled={!symptom.trim() || isLoading}
+              disabled={!query.trim() || isLoading}
             >
               {isLoading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
                 <>
-                  <Text style={styles.submitButtonText}>Get Triage</Text>
-                  <Ionicons name="arrow-forward" size={20} color="#fff" />
+                  <Ionicons name="search" size={20} color="#fff" />
+                  <Text style={styles.submitButtonText}>Search Protocols</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -141,24 +119,31 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.examples}>
-          <Text style={styles.examplesTitle}>Example symptoms:</Text>
+          <Text style={styles.examplesTitle}>Example searches:</Text>
           {[
-            "feeling anxious and can't sleep",
-            "lower back pain radiating to leg",
-            "always thirsty and urinating frequently",
-            "trouble swallowing and food getting stuck",
-            "seeing floaters and flashing lights",
-            "heart racing for no reason",
+            "crushing chest pain",
+            "child with high fever",
+            "difficulty breathing at rest",
+            "severe headache sudden onset",
+            "uncontrolled bleeding",
+            "suspected stroke symptoms",
           ].map((example, i) => (
             <TouchableOpacity 
               key={i} 
               style={styles.exampleItem}
-              onPress={() => setSymptom(example)}
+              onPress={() => setQuery(example)}
             >
               <Ionicons name="add-circle-outline" size={16} color="#64748b" />
               <Text style={styles.exampleText}>{example}</Text>
             </TouchableOpacity>
           ))}
+        </View>
+
+        <View style={styles.infoCard}>
+          <Ionicons name="information-circle" size={20} color="#059669" />
+          <Text style={styles.infoText}>
+            Search is powered by MedSigLIP AI embeddings. All processing happens on-device - no internet required.
+          </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -198,6 +183,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
     marginTop: 4,
+    textAlign: 'center',
   },
   inputContainer: {
     backgroundColor: '#fff',
@@ -221,7 +207,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
-    minHeight: 120,
+    minHeight: 100,
     backgroundColor: '#f8fafc',
     color: '#1e293b',
   },
@@ -235,7 +221,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2563eb',
+    backgroundColor: '#059669',
     borderRadius: 12,
     paddingVertical: 14,
     gap: 8,
@@ -268,34 +254,21 @@ const styles = StyleSheet.create({
     color: '#475569',
     flex: 1,
   },
-  modeToggle: {
+  infoCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginBottom: 16,
-    paddingVertical: 10,
-    backgroundColor: '#fef2f2',
-    borderRadius: 8,
+    alignItems: 'flex-start',
+    gap: 10,
+    marginTop: 24,
+    padding: 16,
+    backgroundColor: '#ecfdf5',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
   },
-  modeToggleText: {
-    fontSize: 14,
-    color: '#dc2626',
-    fontWeight: '500',
-  },
-  chatButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginBottom: 16,
-    paddingVertical: 10,
-    backgroundColor: '#eef2ff',
-    borderRadius: 8,
-  },
-  chatButtonText: {
-    fontSize: 14,
-    color: '#6366f1',
-    fontWeight: '500',
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#065f46',
+    lineHeight: 20,
   },
 });

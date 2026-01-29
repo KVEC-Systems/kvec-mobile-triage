@@ -1,10 +1,8 @@
 /**
  * Model Download Service
- * Downloads models from HuggingFace Hub on first app launch
- * Supports resuming downloads after app goes to background
+ * Downloads MedSigLIP text encoder for semantic search
  */
 
-// Use legacy APIs for download functionality
 import {
   createDownloadResumable,
   documentDirectory,
@@ -16,93 +14,28 @@ import {
 } from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Storage key for resumable download state
-const DOWNLOAD_STATE_KEY = 'litertlm_download_state';
-
-// HuggingFace token for gated models (stored in AsyncStorage)
-const HF_TOKEN_KEY = 'huggingface_token';
-// Default token for development - user can override via setHuggingFaceToken()
-let hfToken: string | null = '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';
-
-/**
- * Set HuggingFace token for downloading gated models
- */
-export async function setHuggingFaceToken(token: string): Promise<void> {
-  hfToken = token;
-  await AsyncStorage.setItem(HF_TOKEN_KEY, token);
-}
-
-/**
- * Get stored HuggingFace token
- */
-export async function getHuggingFaceToken(): Promise<string | null> {
-  if (hfToken) return hfToken;
-  hfToken = await AsyncStorage.getItem(HF_TOKEN_KEY);
-  return hfToken;
-}
-
-/**
- * Check if HuggingFace token is set
- */
-export async function hasHuggingFaceToken(): Promise<boolean> {
-  return (await getHuggingFaceToken()) !== null;
-}
+// Storage keys
+const DOWNLOAD_STATE_KEY = 'medsiglip_download_state';
 
 // Active download reference
 let activeDownload: DownloadResumable | null = null;
 
 // HuggingFace model URLs
 const HF_BASE = 'https://huggingface.co';
+
+// Model configuration
+// Note: These will need to be updated after running build_vector_db.py
+// and uploading the ONNX model to HuggingFace
 const MODELS = {
-  // Gemma3 1B-IT LiteRT model (int4 quantized, ~584MB - much smaller than 3n)
-  litertlm: {
-    repo: 'litert-community/Gemma3-1B-IT',
-    file: 'gemma3-1b-it-int4.litertlm',
-    size: 584417280, // ~584MB
+  medsiglipOnnx: {
+    repo: 'ekim1394/medsiglip-text-onnx',
+    file: 'medsiglip-text.onnx',
+    size: 350000000, // ~350MB estimated
   },
-  // SetFit ONNX models for fast classification
-  specialtyOnnx: {
-    repo: 'ekim1394/setfit-specialty-onnx',
-    file: 'body/model.onnx',
-    size: 90400000, // 90.4 MB
-  },
-  conditionOnnx: {
-    repo: 'ekim1394/setfit-condition-onnx',
-    file: 'body/model.onnx',
-    size: 90400000, // ~90 MB (assuming same size)
-  },
-  // Tokenizer files
-  specialtyTokenizer: {
-    repo: 'ekim1394/setfit-specialty-onnx',
-    file: 'body/tokenizer.json',
-    size: 712000, // 712 KB
-  },
-  conditionTokenizer: {
-    repo: 'ekim1394/setfit-condition-onnx',
-    file: 'body/tokenizer.json',
-    size: 712000, // ~712 KB
-  },
-  // Label mappings
-  specialtyLabels: {
-    repo: 'ekim1394/setfit-specialty-onnx',
-    file: 'label_mapping.json',
-    size: 1150, // 1.15 KB
-  },
-  conditionLabels: {
-    repo: 'ekim1394/setfit-condition-onnx',
-    file: 'label_mapping.json',
-    size: 1150, // ~1 KB
-  },
-  // Classification head models
-  specialtyHead: {
-    repo: 'ekim1394/setfit-specialty-onnx',
-    file: 'model_head.onnx',
-    size: 40000, // ~39 KB
-  },
-  conditionHead: {
-    repo: 'ekim1394/setfit-condition-onnx',
-    file: 'model_head.onnx',
-    size: 40000, // ~39 KB
+  medsiglipTokenizer: {
+    repo: 'ekim1394/medsiglip-text-onnx',
+    file: 'medsiglip-tokenizer.json',
+    size: 500000, // ~500KB
   },
 };
 
@@ -114,30 +47,26 @@ export interface DownloadProgress {
 }
 
 export interface ModelStatus {
-  litertlm: {
-    exists: boolean;
-    size?: number;
-    path: string;
-  };
-  setfit: {
-    specialtyExists: boolean;
-    conditionExists: boolean;
+  medsiglip: {
+    onnxExists: boolean;
+    tokenizerExists: boolean;
+    onnxPath: string;
+    tokenizerPath: string;
   };
 }
 
 /**
- * Get the local file path for a model (using legacy API)
+ * Get the local file path for a model
  */
-function getModelUri(modelName: keyof typeof MODELS): string {
-  const model = MODELS[modelName];
-  return `${documentDirectory}models/${model.file}`;
+function getModelPath(filename: string): string {
+  return `${documentDirectory}models/${filename}`;
 }
 
 /**
  * Get the download URL for a model file from HuggingFace
  */
-function getDownloadUrl(modelName: keyof typeof MODELS): string {
-  const model = MODELS[modelName];
+function getDownloadUrl(modelKey: keyof typeof MODELS): string {
+  const model = MODELS[modelKey];
   return `${HF_BASE}/${model.repo}/resolve/main/${model.file}`;
 }
 
@@ -145,156 +74,117 @@ function getDownloadUrl(modelName: keyof typeof MODELS): string {
  * Check which models are already downloaded
  */
 export async function checkModelStatus(): Promise<ModelStatus> {
-  const litertlmPath = `${documentDirectory}models/gemma3-1b-it-int4.litertlm`;
-  const specialtyPath = getModelUri('specialtyOnnx');
-  const conditionPath = getModelUri('conditionOnnx');
+  const onnxPath = getModelPath('medsiglip-text.onnx');
+  const tokenizerPath = getModelPath('medsiglip-tokenizer.json');
   
   try {
-    const [litertlmInfo, specialtyInfo, conditionInfo] = await Promise.all([
-      getInfoAsync(litertlmPath),
-      getInfoAsync(specialtyPath),
-      getInfoAsync(conditionPath),
+    const [onnxInfo, tokenizerInfo] = await Promise.all([
+      getInfoAsync(onnxPath),
+      getInfoAsync(tokenizerPath),
     ]);
     
     return {
-      litertlm: {
-        exists: litertlmInfo.exists,
-        size: litertlmInfo.exists ? (litertlmInfo as any).size : undefined,
-        path: litertlmPath,
-      },
-      setfit: {
-        specialtyExists: specialtyInfo.exists,
-        conditionExists: conditionInfo.exists,
+      medsiglip: {
+        onnxExists: onnxInfo.exists,
+        tokenizerExists: tokenizerInfo.exists,
+        onnxPath,
+        tokenizerPath,
       },
     };
   } catch {
     return {
-      litertlm: { exists: false, path: litertlmPath },
-      setfit: { specialtyExists: false, conditionExists: false },
+      medsiglip: {
+        onnxExists: false,
+        tokenizerExists: false,
+        onnxPath,
+        tokenizerPath,
+      },
     };
   }
 }
 
 /**
- * Download the LiteRT LLM model with progress callback
- * Supports resuming after app goes to background
+ * Download a single file from HuggingFace with progress
  */
-export async function downloadLLMModel(
+async function downloadFile(
+  modelKey: keyof typeof MODELS,
   onProgress?: (progress: DownloadProgress) => void
 ): Promise<boolean> {
-  const fileUri = `${documentDirectory}models/gemma3-1b-it-int4.litertlm`;
+  const model = MODELS[modelKey];
+  const url = getDownloadUrl(modelKey);
+  const fileUri = getModelPath(model.file);
   const dirUri = `${documentDirectory}models`;
   
-  // Create models directory if needed
+  // Create models directory
   try {
     await makeDirectoryAsync(dirUri, { intermediates: true });
   } catch {
     // Directory may already exist
   }
-
-  // Check if already exists and complete
-  const info = await getInfoAsync(fileUri);
-  const minSize = 100000000; // At least 100MB for valid model
   
+  // Check if already exists
+  const info = await getInfoAsync(fileUri);
   if (info.exists) {
-    const fileSize = (info as any).size || 0;
-    if (fileSize >= MODELS.litertlm.size * 0.99) {
-      console.log('LiteRT model already downloaded');
-      await AsyncStorage.removeItem(DOWNLOAD_STATE_KEY);
-      return true;
-    } else {
-      // File is corrupted or incomplete - delete it
-      console.log(`Deleting corrupted model file (${fileSize} bytes)`);
-      await deleteAsync(fileUri, { idempotent: true });
-      await AsyncStorage.removeItem(DOWNLOAD_STATE_KEY); // Clear resume state too
-    }
+    console.log(`${model.file} already exists`);
+    return true;
   }
-
-  const branch = (MODELS.litertlm as any).branch || 'main';
-  const url = `${HF_BASE}/${MODELS.litertlm.repo}/resolve/${branch}/${MODELS.litertlm.file}`;
-  const expectedSize = MODELS.litertlm.size;
-
-  try {
-    // Check for saved resumable state
-    const savedState = await AsyncStorage.getItem(DOWNLOAD_STATE_KEY);
-    
-    const progressCallback = (downloadProgress: DownloadProgressData) => {
+  
+  console.log(`Downloading ${model.file} from ${url}`);
+  
+  const downloadResumable = createDownloadResumable(
+    url,
+    fileUri,
+    {},
+    (downloadProgress: DownloadProgressData) => {
       if (onProgress) {
         const current = downloadProgress.totalBytesWritten;
-        const total = downloadProgress.totalBytesExpectedToWrite || expectedSize;
+        const total = downloadProgress.totalBytesExpectedToWrite || model.size;
         onProgress({
-          modelName: 'Gemma 3n LiteRT',
+          modelName: model.file,
           current,
           total,
           percent: Math.round((current / total) * 100),
         });
       }
-    };
-
-    let result;
-    
-    if (savedState) {
-      // Resume from saved state
-      console.log('Resuming LiteRT model download...');
-      activeDownload = createDownloadResumable(
-        url,
-        fileUri,
-        {},
-        progressCallback,
-        savedState
-      );
-      result = await activeDownload.resumeAsync();
-    } else {
-      // Start fresh download
-      console.log(`Downloading LiteRT model from ${url}`);
-      
-      // Add HF token for gated models
-      const token = await getHuggingFaceToken();
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      
-      activeDownload = createDownloadResumable(
-        url,
-        fileUri,
-        { headers },
-        progressCallback
-      );
-      result = await activeDownload.downloadAsync();
     }
-    
-    if (result?.uri) {
-      console.log('LiteRT model download complete');
-      await AsyncStorage.removeItem(DOWNLOAD_STATE_KEY);
-      activeDownload = null;
-      return true;
-    }
-    
-    return false;
+  );
+  
+  activeDownload = downloadResumable;
+  
+  try {
+    const result = await downloadResumable.downloadAsync();
+    activeDownload = null;
+    return result?.uri !== undefined;
   } catch (error) {
-    console.error('Download interrupted or failed:', error);
-    
-    // Save state for resume
-    if (activeDownload) {
-      try {
-        const savable = await activeDownload.savable();
-        await AsyncStorage.setItem(DOWNLOAD_STATE_KEY, savable.resumeData || '');
-        console.log('Download state saved for resume');
-      } catch {
-        // Couldn't save state
-      }
-    }
-    
+    console.error(`Failed to download ${model.file}:`, error);
+    activeDownload = null;
     throw error;
   }
 }
 
-// Keep old function name as alias for backward compatibility
-export const downloadGGUFModel = downloadLLMModel;
+/**
+ * Download MedSigLIP models
+ */
+export async function downloadMedSigLIPModels(
+  onProgress?: (progress: DownloadProgress) => void
+): Promise<boolean> {
+  try {
+    // Download ONNX model
+    await downloadFile('medsiglipOnnx', onProgress);
+    
+    // Download tokenizer
+    await downloadFile('medsiglipTokenizer', onProgress);
+    
+    console.log('MedSigLIP models download complete');
+    return true;
+  } catch (error) {
+    console.error('Failed to download MedSigLIP models:', error);
+    return false;
+  }
+}
 
 /**
- * Pause the active download (call before app goes to background)
+ * Pause the active download
  */
 export async function pauseDownload(): Promise<void> {
   if (activeDownload) {
@@ -309,105 +199,17 @@ export async function pauseDownload(): Promise<void> {
 }
 
 /**
- * Check if there's a download to resume
- */
-export async function hasResumableDownload(): Promise<boolean> {
-  const state = await AsyncStorage.getItem(DOWNLOAD_STATE_KEY);
-  return state !== null;
-}
-
-/**
- * Download a single file from HuggingFace
- */
-async function downloadFile(
-  modelKey: keyof typeof MODELS,
-  localFilename: string,
-  onProgress?: (progress: DownloadProgress) => void
-): Promise<boolean> {
-  const url = getDownloadUrl(modelKey);
-  const fileUri = `${documentDirectory}models/${localFilename}`;
-  const dirUri = `${documentDirectory}models`;
-  
-  try {
-    await makeDirectoryAsync(dirUri, { intermediates: true });
-  } catch {
-    // Directory may already exist
-  }
-  
-  // Check if already exists
-  const info = await getInfoAsync(fileUri);
-  if (info.exists) {
-    return true;
-  }
-  
-  console.log(`Downloading ${localFilename} from ${url}`);
-  
-  const downloadResumable = createDownloadResumable(
-    url,
-    fileUri,
-    {},
-    (downloadProgress: DownloadProgressData) => {
-      if (onProgress) {
-        const current = downloadProgress.totalBytesWritten;
-        const total = downloadProgress.totalBytesExpectedToWrite || MODELS[modelKey].size;
-        onProgress({
-          modelName: localFilename,
-          current,
-          total,
-          percent: Math.round((current / total) * 100),
-        });
-      }
-    }
-  );
-  
-  const result = await downloadResumable.downloadAsync();
-  return result?.uri !== undefined;
-}
-
-/**
- * Download all SetFit models and supporting files
- */
-export async function downloadSetFitModels(
-  onProgress?: (progress: DownloadProgress) => void
-): Promise<boolean> {
-  try {
-    // Download specialty model and files
-    await downloadFile('specialtyOnnx', 'specialty-model.onnx', onProgress);
-    await downloadFile('specialtyTokenizer', 'specialty-tokenizer.json', onProgress);
-    await downloadFile('specialtyLabels', 'specialty-labels.json', onProgress);
-    await downloadFile('specialtyHead', 'specialty-head.onnx', onProgress);
-    
-    // Download condition model and files
-    await downloadFile('conditionOnnx', 'condition-model.onnx', onProgress);
-    await downloadFile('conditionTokenizer', 'condition-tokenizer.json', onProgress);
-    await downloadFile('conditionLabels', 'condition-labels.json', onProgress);
-    await downloadFile('conditionHead', 'condition-head.onnx', onProgress);
-    
-    console.log('SetFit models download complete');
-    return true;
-  } catch (error) {
-    console.error('Failed to download SetFit models:', error);
-    return false;
-  }
-}
-
-/**
- * Get total download size required (for models not yet downloaded)
+ * Get total download size required
  */
 export async function getRemainingDownloadSize(): Promise<number> {
   const status = await checkModelStatus();
   let total = 0;
   
-  if (!status.litertlm.exists) {
-    total += MODELS.litertlm.size;
+  if (!status.medsiglip.onnxExists) {
+    total += MODELS.medsiglipOnnx.size;
   }
-  
-  // Add SetFit files if not present
-  if (!status.setfit.specialtyExists) {
-    total += MODELS.specialtyOnnx.size + MODELS.specialtyTokenizer.size + MODELS.specialtyLabels.size;
-  }
-  if (!status.setfit.conditionExists) {
-    total += MODELS.conditionOnnx.size + MODELS.conditionTokenizer.size + MODELS.conditionLabels.size;
+  if (!status.medsiglip.tokenizerExists) {
+    total += MODELS.medsiglipTokenizer.size;
   }
   
   return total;
@@ -424,11 +226,9 @@ export function formatBytes(bytes: number): string {
 }
 
 /**
- * Get model file path for LLM loading
+ * Check if all required models are available
  */
-export function getLLMModelPath(): string {
-  return `${documentDirectory}models/gemma3-1b-it-int4.litertlm`;
+export async function areModelsReady(): Promise<boolean> {
+  const status = await checkModelStatus();
+  return status.medsiglip.onnxExists && status.medsiglip.tokenizerExists;
 }
-
-// Keep old function name as alias
-export const getGGUFModelPath = getLLMModelPath;

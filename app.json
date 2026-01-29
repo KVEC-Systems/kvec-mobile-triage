@@ -34,7 +34,8 @@
     },
     "plugins": [
       "expo-router",
-      "expo-llm-mediapipe"
+      "expo-llm-mediapipe",
+      "expo-asset"
     ],
     "extra": {
       "router": {},
