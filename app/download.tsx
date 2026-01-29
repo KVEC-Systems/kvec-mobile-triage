@@ -11,7 +11,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
   checkModelStatus,
-  downloadMedGemmaModel,
+  downloadAllModels,
   getRemainingDownloadSize,
   formatBytes,
   type DownloadProgress,
@@ -31,7 +31,8 @@ export default function DownloadScreen() {
     async function check() {
       try {
         const status = await checkModelStatus();
-        const isComplete = status.medgemma.ggufExists;
+        const isComplete = status.medgemma.ggufExists && 
+          status.medasr.onnxExists && status.medasr.tokensExists;
         
         if (isComplete) {
           setState('complete');
@@ -55,7 +56,7 @@ export default function DownloadScreen() {
     setErrorMessage(null);
     
     try {
-      const success = await downloadMedGemmaModel((prog) => {
+      const success = await downloadAllModels((prog) => {
         setProgress(prog);
       });
       
@@ -91,10 +92,10 @@ export default function DownloadScreen() {
             <View style={styles.iconContainer}>
               <Ionicons name="cloud-download" size={64} color="#6366f1" />
             </View>
-            <Text style={styles.title}>Download AI Model</Text>
+            <Text style={styles.title}>Download AI Models</Text>
             <Text style={styles.description}>
-              MedGemma is a medical AI assistant. Download the model 
-              for on-device chat (works offline).
+              Download MedASR (speech-to-text) and MedGemma (AI assistant) 
+              for on-device PCR generation, works completely offline.
             </Text>
             <View style={styles.sizeInfo}>
               <Ionicons name="download-outline" size={18} color="#64748b" />

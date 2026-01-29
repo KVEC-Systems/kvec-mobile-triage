@@ -35,7 +35,8 @@
     "plugins": [
       "expo-router",
       "expo-llm-mediapipe",
-      "expo-asset"
+      "expo-asset",
+      "onnxruntime-react-native"
     ],
     "extra": {
       "router": {},

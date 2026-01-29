@@ -30,6 +30,16 @@ const MODELS = {
     file: 'medgemma-4b-iq2_xxs.gguf',
     size: 1310000000, // ~1.31GB
   },
+  medasrOnnx: {
+    repo: 'csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25',
+    file: 'model.int8.onnx',
+    size: 154000000, // ~154MB
+  },
+  medasrTokens: {
+    repo: 'csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25',
+    file: 'tokens.txt',
+    size: 5000, // ~5KB
+  },
 };
 
 export interface DownloadProgress {
@@ -43,6 +53,12 @@ export interface ModelStatus {
   medgemma: {
     ggufExists: boolean;
     ggufPath: string;
+  };
+  medasr: {
+    onnxExists: boolean;
+    tokensExists: boolean;
+    onnxPath: string;
+    tokensPath: string;
   };
 }
 
@@ -65,15 +81,27 @@ function getDownloadUrl(modelKey: keyof typeof MODELS): string {
  * Check which models are already downloaded
  */
 export async function checkModelStatus(): Promise<ModelStatus> {
-  const ggufPath = getModelPath('medgemma-4b-iq2_xxs.gguf');
+  const ggufPath = getModelPath(MODELS.medgemmaGguf.file);
+  const onnxPath = getModelPath(MODELS.medasrOnnx.file);
+  const tokensPath = getModelPath(MODELS.medasrTokens.file);
   
   try {
-    const ggufInfo = await getInfoAsync(ggufPath);
+    const [ggufInfo, onnxInfo, tokensInfo] = await Promise.all([
+      getInfoAsync(ggufPath),
+      getInfoAsync(onnxPath),
+      getInfoAsync(tokensPath),
+    ]);
     
     return {
       medgemma: {
         ggufExists: ggufInfo.exists,
         ggufPath,
+      },
+      medasr: {
+        onnxExists: onnxInfo.exists,
+        tokensExists: tokensInfo.exists,
+        onnxPath,
+        tokensPath,
       },
     };
   } catch {
@@ -81,6 +109,12 @@ export async function checkModelStatus(): Promise<ModelStatus> {
       medgemma: {
         ggufExists: false,
         ggufPath,
+      },
+      medasr: {
+        onnxExists: false,
+        tokensExists: false,
+        onnxPath,
+        tokensPath,
       },
     };
   }
@@ -162,6 +196,41 @@ export async function downloadMedGemmaModel(
 }
 
 /**
+ * Download MedASR models (ONNX + tokens)
+ */
+export async function downloadMedASRModels(
+  onProgress?: (progress: DownloadProgress) => void
+): Promise<boolean> {
+  try {
+    await downloadFile('medasrOnnx', onProgress);
+    await downloadFile('medasrTokens', onProgress);
+    console.log('MedASR models download complete');
+    return true;
+  } catch (error) {
+    console.error('Failed to download MedASR models:', error);
+    return false;
+  }
+}
+
+/**
+ * Download all required models
+ */
+export async function downloadAllModels(
+  onProgress?: (progress: DownloadProgress) => void
+): Promise<boolean> {
+  try {
+    // Download MedASR first (smaller, faster feedback)
+    await downloadMedASRModels(onProgress);
+    // Then download MedGemma
+    await downloadMedGemmaModel(onProgress);
+    return true;
+  } catch (error) {
+    console.error('Failed to download all models:', error);
+    return false;
+  }
+}
+
+/**
  * Pause the active download
  */
 export async function pauseDownload(): Promise<void> {
@@ -181,12 +250,19 @@ export async function pauseDownload(): Promise<void> {
  */
 export async function getRemainingDownloadSize(): Promise<number> {
   const status = await checkModelStatus();
+  let size = 0;
   
+  if (!status.medasr.onnxExists) {
+    size += MODELS.medasrOnnx.size;
+  }
+  if (!status.medasr.tokensExists) {
+    size += MODELS.medasrTokens.size;
+  }
   if (!status.medgemma.ggufExists) {
-    return MODELS.medgemmaGguf.size;
+    size += MODELS.medgemmaGguf.size;
   }
   
-  return 0;
+  return size;
 }
 
 /**
@@ -204,7 +280,11 @@ export function formatBytes(bytes: number): string {
  */
 export async function areModelsReady(): Promise<boolean> {
   const status = await checkModelStatus();
-  return status.medgemma.ggufExists;
+  return (
+    status.medgemma.ggufExists &&
+    status.medasr.onnxExists &&
+    status.medasr.tokensExists
+  );
 }
 
 /**
@@ -213,3 +293,14 @@ export async function areModelsReady(): Promise<boolean> {
 export function getGgufModelPath(): string {
   return `${documentDirectory}models/${MODELS.medgemmaGguf.file}`;
 }
+
+/**
+ * Get the paths to the downloaded ASR models
+ */
+export function getAsrModelPaths(): { onnxPath: string; tokensPath: string } {
+  return {
+    onnxPath: `${documentDirectory}models/${MODELS.medasrOnnx.file}`,
+    tokensPath: `${documentDirectory}models/${MODELS.medasrTokens.file}`,
+  };
+}
+

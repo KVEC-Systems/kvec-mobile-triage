@@ -122,8 +122,39 @@ export async function releaseLLM(): Promise<void> {
 }
 
 /**
+ * Generate an EMS Patient Care Report from a transcript
+ * @param transcript Raw transcript from speech recognition
+ * @param onToken Callback for streaming tokens
+ * @returns Formatted PCR text
+ */
+export async function generatePCR(
+  transcript: string,
+  onToken?: (token: string) => void
+): Promise<string> {
+  const systemPrompt = `You are an EMS documentation assistant. Generate a structured Patient Care Report (PCR) from the following transcript of a first responder's verbal notes. Format the output as plain text that can be copied into an ePCR system.
+
+Include these sections (skip any section without information):
+- PATIENT: Age, sex, chief complaint
+- DISPATCH: Call type, priority
+- ASSESSMENT: Mental status, airway, breathing, circulation, vitals
+- INTERVENTIONS: Medications, procedures, treatments given
+- TRANSPORT: Destination, changes en route
+- HANDOFF: Receiving staff, report summary
+
+Be concise and use standard medical abbreviations (pt, yo, LOC, GCS, BP, HR, RR, SpO2, etc).`;
+
+  const messages: ChatMessage[] = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: `Transcript:\n${transcript}` },
+  ];
+
+  return generateResponse(messages, onToken);
+}
+
+/**
  * Check if LLM is ready
  */
 export function isLLMReady(): boolean {
   return llamaContext !== null;
 }
+
