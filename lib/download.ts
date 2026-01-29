@@ -54,11 +54,11 @@ let activeDownload: DownloadResumable | null = null;
 // HuggingFace model URLs
 const HF_BASE = 'https://huggingface.co';
 const MODELS = {
-  // Gemma 3n LiteRT model (int4 quantized - for LiteRT-LM SDK)
+  // Gemma3 1B-IT LiteRT model (int4 quantized, ~584MB - much smaller than 3n)
   litertlm: {
-    repo: 'google/gemma-3n-E2B-it-litert-lm',
-    file: 'gemma-3n-E2B-it-int4.litertlm',
-    size: 3655827456, // 3.6GB
+    repo: 'litert-community/Gemma3-1B-IT',
+    file: 'gemma3-1b-it-int4.litertlm',
+    size: 584417280, // ~584MB
   },
   // SetFit ONNX models for fast classification
   specialtyOnnx: {
@@ -145,7 +145,7 @@ function getDownloadUrl(modelName: keyof typeof MODELS): string {
  * Check which models are already downloaded
  */
 export async function checkModelStatus(): Promise<ModelStatus> {
-  const litertlmPath = `${documentDirectory}models/gemma-3n-E2B-it-int4.litertlm`;
+  const litertlmPath = `${documentDirectory}models/gemma3-1b-it-int4.litertlm`;
   const specialtyPath = getModelUri('specialtyOnnx');
   const conditionPath = getModelUri('conditionOnnx');
   
@@ -182,7 +182,7 @@ export async function checkModelStatus(): Promise<ModelStatus> {
 export async function downloadLLMModel(
   onProgress?: (progress: DownloadProgress) => void
 ): Promise<boolean> {
-  const fileUri = `${documentDirectory}models/gemma-3n-E2B-it-int4.litertlm`;
+  const fileUri = `${documentDirectory}models/gemma3-1b-it-int4.litertlm`;
   const dirUri = `${documentDirectory}models`;
   
   // Create models directory if needed
@@ -427,7 +427,7 @@ export function formatBytes(bytes: number): string {
  * Get model file path for LLM loading
  */
 export function getLLMModelPath(): string {
-  return `${documentDirectory}models/gemma-3n-E2B-it-int4.litertlm`;
+  return `${documentDirectory}models/gemma3-1b-it-int4.litertlm`;
 }
 
 // Keep old function name as alias
