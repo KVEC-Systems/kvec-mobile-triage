@@ -81,7 +81,7 @@ Downloaded to `[DocumentDirectory]/models/`:
 
 | File | Source | Size |
 |------|--------|------|
-| `gemma-3n-E2B-it-int4.litertlm` | google/gemma-3n-E2B-it-litert-lm | ~2GB |
+| `gemma-3n-E2B-it-int4.bin` | google/gemma-3n-E2B-it-litert-lm | ~2GB |
 | `specialty-model.onnx` | ekim1394/setfit-specialty-onnx/body/model.onnx | ~90MB |
 | `condition-model.onnx` | ekim1394/setfit-condition-onnx/body/model.onnx | ~90MB |
 | `specialty-head.onnx` | ekim1394/setfit-specialty-onnx/model_head.onnx | ~39KB |

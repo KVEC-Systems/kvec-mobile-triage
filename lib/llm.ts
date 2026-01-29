@@ -7,7 +7,7 @@ import ExpoLlmMediapipe from 'expo-llm-mediapipe';
 import { Paths, File } from 'expo-file-system';
 
 // Model configuration - LiteRT format for MediaPipe
-const MODEL_FILENAME = 'gemma-3n-E2B-it-int4.litertlm';
+const MODEL_FILENAME = 'gemma-3n-E2B-it-int4.bin';
 
 // Get model file reference (lazy init since Paths.document may not be ready at module load)
 function getModelFile(): File {

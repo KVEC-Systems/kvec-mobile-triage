@@ -54,11 +54,12 @@ let activeDownload: DownloadResumable | null = null;
 // HuggingFace model URLs
 const HF_BASE = 'https://huggingface.co';
 const MODELS = {
-  // Gemma 3n LiteRT model for MediaPipe (int4 quantized)
+  // Gemma 3n model for MediaPipe (int4 quantized .bin from experimental branch)
   litertlm: {
     repo: 'google/gemma-3n-E2B-it-litert-lm',
-    file: 'gemma-3n-E2B-it-int4.litertlm',
-    size: 3655827456, // 3.6GB actual size
+    branch: 'experimental', // Use experimental branch for .bin format
+    file: 'gemma-3n-E2B-it-int4.bin',
+    size: 2861957120, // 2.86GB
   },
   // SetFit ONNX models for fast classification
   specialtyOnnx: {
@@ -145,7 +146,7 @@ function getDownloadUrl(modelName: keyof typeof MODELS): string {
  * Check which models are already downloaded
  */
 export async function checkModelStatus(): Promise<ModelStatus> {
-  const litertlmPath = `${documentDirectory}models/gemma-3n-E2B-it-int4.litertlm`;
+  const litertlmPath = `${documentDirectory}models/gemma-3n-E2B-it-int4.bin`;
   const specialtyPath = getModelUri('specialtyOnnx');
   const conditionPath = getModelUri('conditionOnnx');
   
@@ -182,7 +183,7 @@ export async function checkModelStatus(): Promise<ModelStatus> {
 export async function downloadLLMModel(
   onProgress?: (progress: DownloadProgress) => void
 ): Promise<boolean> {
-  const fileUri = `${documentDirectory}models/gemma-3n-E2B-it-int4.litertlm`;
+  const fileUri = `${documentDirectory}models/gemma-3n-E2B-it-int4.bin`;
   const dirUri = `${documentDirectory}models`;
   
   // Create models directory if needed
@@ -210,7 +211,8 @@ export async function downloadLLMModel(
     }
   }
 
-  const url = `${HF_BASE}/${MODELS.litertlm.repo}/resolve/main/${MODELS.litertlm.file}`;
+  const branch = (MODELS.litertlm as any).branch || 'main';
+  const url = `${HF_BASE}/${MODELS.litertlm.repo}/resolve/${branch}/${MODELS.litertlm.file}`;
   const expectedSize = MODELS.litertlm.size;
 
   try {
@@ -426,7 +428,7 @@ export function formatBytes(bytes: number): string {
  * Get model file path for LLM loading
  */
 export function getLLMModelPath(): string {
-  return `${documentDirectory}models/gemma-3n-E2B-it-int4.litertlm`;
+  return `${documentDirectory}models/gemma-3n-E2B-it-int4.bin`;
 }
 
 // Keep old function name as alias
