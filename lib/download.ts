@@ -21,7 +21,8 @@ const DOWNLOAD_STATE_KEY = 'litertlm_download_state';
 
 // HuggingFace token for gated models (stored in AsyncStorage)
 const HF_TOKEN_KEY = 'huggingface_token';
-let hfToken: string | null = null;
+// Default token for development - user can override via setHuggingFaceToken()
+let hfToken: string | null = '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';
 
 /**
  * Set HuggingFace token for downloading gated models
@@ -53,11 +54,11 @@ let activeDownload: DownloadResumable | null = null;
 // HuggingFace model URLs
 const HF_BASE = 'https://huggingface.co';
 const MODELS = {
-  // Gemma 3n LiteRT model for MediaPipe
+  // Gemma 3n LiteRT model for MediaPipe (int4 quantized)
   litertlm: {
     repo: 'google/gemma-3n-E2B-it-litert-lm',
-    file: 'gemma3n-E2B-it-lm-f16.litertlm',
-    size: 2000000000, // ~2GB estimated
+    file: 'gemma-3n-E2B-it-int4.litertlm',
+    size: 3655827456, // 3.6GB actual size
   },
   // SetFit ONNX models for fast classification
   specialtyOnnx: {
@@ -144,7 +145,7 @@ function getDownloadUrl(modelName: keyof typeof MODELS): string {
  * Check which models are already downloaded
  */
 export async function checkModelStatus(): Promise<ModelStatus> {
-  const litertlmPath = `${documentDirectory}models/gemma-3n-e2b.litertlm`;
+  const litertlmPath = `${documentDirectory}models/gemma-3n-E2B-it-int4.litertlm`;
   const specialtyPath = getModelUri('specialtyOnnx');
   const conditionPath = getModelUri('conditionOnnx');
   
@@ -181,7 +182,7 @@ export async function checkModelStatus(): Promise<ModelStatus> {
 export async function downloadLLMModel(
   onProgress?: (progress: DownloadProgress) => void
 ): Promise<boolean> {
-  const fileUri = `${documentDirectory}models/gemma-3n-e2b.litertlm`;
+  const fileUri = `${documentDirectory}models/gemma-3n-E2B-it-int4.litertlm`;
   const dirUri = `${documentDirectory}models`;
   
   // Create models directory if needed
@@ -193,10 +194,20 @@ export async function downloadLLMModel(
 
   // Check if already exists and complete
   const info = await getInfoAsync(fileUri);
-  if (info.exists && (info as any).size >= MODELS.litertlm.size * 0.99) {
-    console.log('LiteRT model already downloaded');
-    await AsyncStorage.removeItem(DOWNLOAD_STATE_KEY);
-    return true;
+  const minSize = 100000000; // At least 100MB for valid model
+  
+  if (info.exists) {
+    const fileSize = (info as any).size || 0;
+    if (fileSize >= MODELS.litertlm.size * 0.99) {
+      console.log('LiteRT model already downloaded');
+      await AsyncStorage.removeItem(DOWNLOAD_STATE_KEY);
+      return true;
+    } else {
+      // File is corrupted or incomplete - delete it
+      console.log(`Deleting corrupted model file (${fileSize} bytes)`);
+      await deleteAsync(fileUri, { idempotent: true });
+      await AsyncStorage.removeItem(DOWNLOAD_STATE_KEY); // Clear resume state too
+    }
   }
 
   const url = `${HF_BASE}/${MODELS.litertlm.repo}/resolve/main/${MODELS.litertlm.file}`;
@@ -415,7 +426,7 @@ export function formatBytes(bytes: number): string {
  * Get model file path for LLM loading
  */
 export function getLLMModelPath(): string {
-  return `${documentDirectory}models/gemma-3n-e2b.litertlm`;
+  return `${documentDirectory}models/gemma-3n-E2B-it-int4.litertlm`;
 }
 
 // Keep old function name as alias
