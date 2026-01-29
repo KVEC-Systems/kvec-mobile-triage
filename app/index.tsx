@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { checkModelStatus } from '../lib/download';
@@ -20,6 +21,7 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingModel, setIsCheckingModel] = useState(true);
   const [isLoadingModel, setIsLoadingModel] = useState(false);
+  const insets = useSafeAreaInsets();
 
   // Check if GGUF model exists on mount, redirect to download if not
   useEffect(() => {
@@ -79,7 +81,7 @@ export default function HomeScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.header}>
           <Ionicons name="medical" size={64} color="#2563eb" />
           <Text style={styles.title}>KVEC Triage</Text>
@@ -172,7 +174,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingTop: 40,
   },
   header: {
     alignItems: 'center',

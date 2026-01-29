@@ -103,7 +103,7 @@ export default function FieldReportScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 40) }]}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16, paddingBottom: Math.max(insets.bottom, 40) }]}>
         {/* Header */}
         <View style={styles.header}>
           <Ionicons name="medkit" size={48} color="#dc2626" />
@@ -320,7 +320,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingTop: 40,
   },
   header: {
     alignItems: 'center',
