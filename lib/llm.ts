@@ -1,21 +1,21 @@
 /**
- * LLM Service for on-device inference using expo-llm-mediapipe
- * Uses Gemma 3n LiteRT model for clinical triage via MediaPipe
+ * LLM Service for on-device inference using LiteRT-LM SDK
+ * Uses Gemma 3n LiteRT model for clinical triage
  */
 
-import ExpoLlmMediapipe from 'expo-llm-mediapipe';
+import LiteRTLM from '../modules/litert-lm/src';
 import { Paths, File } from 'expo-file-system';
 
 // Model configuration - LiteRT format for MediaPipe
-const MODEL_FILENAME = 'gemma-3n-E2B-it-int4.task';
+const MODEL_FILENAME = 'gemma-3n-E2B-it-int4.litertlm';
 
 // Get model file reference (lazy init since Paths.document may not be ready at module load)
 function getModelFile(): File {
   return new File(Paths.document, 'models', MODEL_FILENAME);
 }
 
-// Singleton model handle (native handle from createModel)
-let modelHandle: number | null = null;
+// Engine state (LiteRTLM manages the singleton internally)
+let engineReady = false;
 let isInitializing = false;
 let initError: Error | null = null;
 
@@ -198,7 +198,7 @@ export async function getModelInfo(): Promise<{
  * This is a heavy operation - only call once on app start
  */
 export async function initializeLLM(): Promise<boolean> {
-  if (modelHandle !== null) {
+  if (engineReady !== null) {
     return true; // Already initialized
   }
 
@@ -207,7 +207,7 @@ export async function initializeLLM(): Promise<boolean> {
     while (isInitializing) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    return modelHandle !== null;
+    return engineReady !== null;
   }
 
   isInitializing = true;
@@ -224,21 +224,16 @@ export async function initializeLLM(): Promise<boolean> {
       );
     }
 
-    console.log('Loading Gemma 3n LiteRT model via MediaPipe...');
+    console.log('Loading Gemma 3n LiteRT model via LiteRT-LM SDK...');
     const startTime = Date.now();
 
-    // Convert file:// URI to raw path (MediaPipe expects filesystem path, not URI)
+    // Convert file:// URI to raw path (LiteRT-LM expects filesystem path)
     const modelPath = modelFile.uri.replace('file://', '');
     console.log('Model path:', modelPath);
 
-    // Create MediaPipe LLM model (returns native handle)
-    modelHandle = await ExpoLlmMediapipe.createModel(
-      modelPath,
-      512,    // maxTokens
-      40,     // topK
-      0.1,    // temperature
-      12345   // randomSeed
-    );
+    // Create LiteRT engine
+    await LiteRTLM.createEngine(modelPath);
+    engineReady = true;
 
     const loadTime = Date.now() - startTime;
     console.log(`Model loaded in ${loadTime}ms`);
@@ -263,7 +258,7 @@ export async function runTriage(symptom: string): Promise<TriageResult> {
   const startTime = Date.now();
 
   // If LLM not available, use fallback
-  if (modelHandle === null) {
+  if (engineReady === null) {
     console.log('LLM not available, using fallback triage');
     return runFallbackTriage(symptom, Date.now() - startTime);
   }
@@ -275,8 +270,8 @@ export async function runTriage(symptom: string): Promise<TriageResult> {
     console.log('Input symptom:', symptom);
     console.log('Prompt:', prompt.substring(0, 200) + '...');
     
-    // Run inference via MediaPipe
-    const response = await ExpoLlmMediapipe.generateResponse(modelHandle, ++requestIdCounter, prompt);
+    // Run inference via LiteRT-LM
+    const response = await LiteRTLM.generateResponse(prompt);
 
     const inferenceTime = Date.now() - startTime;
     console.log('Raw LLM response:', response);
@@ -539,9 +534,9 @@ function runFallbackTriage(symptom: string, elapsedMs: number): TriageResult {
  * Release LLM resources
  */
 export async function releaseLLM(): Promise<void> {
-  if (modelHandle !== null) {
-    await ExpoLlmMediapipe.releaseModel(modelHandle);
-    modelHandle = null;
+  if (engineReady) {
+    await LiteRTLM.releaseEngine();
+    engineReady = false;
   }
 }
 
@@ -554,7 +549,7 @@ export function getLLMStatus(): {
   error: string | null;
 } {
   return {
-    initialized: modelHandle !== null,
+    initialized: engineReady !== null,
     initializing: isInitializing,
     error: initError?.message ?? null,
   };
@@ -564,12 +559,12 @@ export function getLLMStatus(): {
  * Send a freeform message to the LLM and get a response
  */
 export async function sendMessage(prompt: string): Promise<string> {
-  if (modelHandle === null) {
+  if (engineReady === null) {
     throw new Error('LLM not initialized');
   }
 
   try {
-    const result = await ExpoLlmMediapipe.generateResponse(modelHandle, ++requestIdCounter, prompt);
+    const result = await LiteRTLM.generateResponse(prompt);
     return result.trim();
   } catch (error) {
     console.error('LLM completion error:', error);
@@ -634,7 +629,7 @@ export async function enrichWithLLM(
   }
 
   // Fall back to on-device inference
-  if (modelHandle === null) {
+  if (engineReady === null) {
     console.log('LLM not available for enrichment, using defaults');
     return { ...defaultResult, enrichmentTime: Date.now() - startTime };
   }
@@ -651,7 +646,7 @@ URGENCY|RED_FLAGS|TIMEFRAME|QUESTIONS
     console.log('=== LLM ENRICHMENT ===');
     console.log('Enriching for:', specialty);
 
-    const response = await ExpoLlmMediapipe.generateResponse(modelHandle!, ++requestIdCounter, prompt);
+    const response = await LiteRTLM.generateResponse(prompt);
 
     const enrichmentTime = Date.now() - startTime;
     console.log('Raw enrichment response:', response);
@@ -926,7 +921,7 @@ export async function runProtocolInference(
   const prompt = buildProtocolPrompt(observation, patientInfo);
   
   // If LLM not available, use fallback
-  if (modelHandle === null) {
+  if (engineReady === null) {
     console.log('LLM not available, using keyword-based protocol matching');
     return runFallbackProtocol(observation, patientInfo, Date.now() - startTime);
   }
@@ -935,7 +930,7 @@ export async function runProtocolInference(
     console.log('=== PROTOCOL INFERENCE ===');
     console.log('Observation:', observation);
     
-    const response = await ExpoLlmMediapipe.generateResponse(modelHandle!, ++requestIdCounter, prompt);
+    const response = await LiteRTLM.generateResponse(prompt);
 
     const inferenceTime = Date.now() - startTime;
     console.log('Raw response:', response);

@@ -1,0 +1,7 @@
+{
+  "name": "litert-lm",
+  "platforms": ["android"],
+  "android": {
+    "modules": ["expo.modules.litertlm.LiteRTLMModule"]
+  }
+}
