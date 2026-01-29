@@ -1,1 +1,0 @@
-/Users/ekim/code/kvec/kvec-mobile-triage/modules/litert-lm/android/src/main/java/expo/modules/litertlm/LiteRTLMModule.kt

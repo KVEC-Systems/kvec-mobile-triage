@@ -198,7 +198,7 @@ export async function getModelInfo(): Promise<{
  * This is a heavy operation - only call once on app start
  */
 export async function initializeLLM(): Promise<boolean> {
-  if (engineReady !== null) {
+  if (engineReady) {
     return true; // Already initialized
   }
 
@@ -207,7 +207,7 @@ export async function initializeLLM(): Promise<boolean> {
     while (isInitializing) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    return engineReady !== null;
+    return engineReady;
   }
 
   isInitializing = true;
