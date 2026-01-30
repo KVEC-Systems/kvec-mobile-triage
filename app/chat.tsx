@@ -7,14 +7,28 @@ import {
   StyleSheet,
   ActivityIndicator,
   ScrollView,
+  Image,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { areModelsReady } from '../lib/download';
-import { initializeLLM, generateResponse, isLLMReady, type ChatMessage } from '../lib/llm';
+import { initializeLLM, generateResponse, isLLMReady, isVisionEnabled, type ChatMessage, type ChatMessageContent } from '../lib/llm';
 import { HamburgerMenu } from '../components/HamburgerMenu';
+
+// Helper to extract text content from message
+function getMessageText(content: string | ChatMessageContent[]): string {
+  if (typeof content === 'string') {
+    return content;
+  }
+  return content
+    .filter((item): item is { type: 'text'; text: string } => item.type === 'text')
+    .map(item => item.text)
+    .join('\n');
+}
 
 export default function ChatScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -23,6 +37,7 @@ export default function ChatScreen() {
   const [isCheckingModels, setIsCheckingModels] = useState(true);
   const [isLoadingModel, setIsLoadingModel] = useState(false);
   const [streamingText, setStreamingText] = useState('');
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
 
@@ -52,13 +67,71 @@ export default function ChatScreen() {
     checkAndLoadModels();
   }, []);
 
-  const handleSend = useCallback(async () => {
-    if (!inputText.trim() || isLoading) return;
+  // Pick image from camera
+  const pickFromCamera = useCallback(async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Camera permission is required to take photos.');
+      return;
+    }
     
-    const userMessage: ChatMessage = { role: 'user', content: inputText.trim() };
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: 'images',
+      quality: 0.8,
+      allowsEditing: true,
+    });
+    
+    if (!result.canceled && result.assets[0]) {
+      setSelectedImage(result.assets[0].uri);
+    }
+  }, []);
+
+  // Pick image from gallery
+  const pickFromGallery = useCallback(async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      quality: 0.8,
+      allowsEditing: true,
+    });
+    
+    if (!result.canceled && result.assets[0]) {
+      setSelectedImage(result.assets[0].uri);
+    }
+  }, []);
+
+  // Show image picker options
+  const showImageOptions = useCallback(() => {
+    Alert.alert(
+      'Add Image',
+      'Choose where to get your image',
+      [
+        { text: 'Camera', onPress: pickFromCamera },
+        { text: 'Photo Library', onPress: pickFromGallery },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  }, [pickFromCamera, pickFromGallery]);
+
+  const handleSend = useCallback(async () => {
+    if (!inputText.trim() && !selectedImage) return;
+    if (isLoading) return;
+    
+    // Build message content (text + optional image)
+    let messageContent: string | ChatMessageContent[];
+    if (selectedImage && isVisionEnabled()) {
+      messageContent = [
+        { type: 'text', text: inputText.trim() || 'What do you see in this image?' },
+        { type: 'image_url', image_url: { url: selectedImage } },
+      ];
+    } else {
+      messageContent = inputText.trim();
+    }
+    
+    const userMessage: ChatMessage = { role: 'user', content: messageContent };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setInputText('');
+    setSelectedImage(null);
     setIsLoading(true);
     setStreamingText('');
     
@@ -155,7 +228,7 @@ export default function ChatScreen() {
               styles.messageText,
               msg.role === 'user' ? styles.userText : styles.assistantText,
             ]}>
-              {msg.content}
+              {getMessageText(msg.content)}
             </Text>
           </View>
         ))}
@@ -178,24 +251,48 @@ export default function ChatScreen() {
       </ScrollView>
       
       {/* Input area */}
-      <View style={[styles.inputContainer, { paddingBottom: insets.bottom + 8 }]}>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Type your message..."
-          placeholderTextColor="#94a3b8"
-          value={inputText}
-          onChangeText={setInputText}
-          multiline
-          maxLength={1000}
-          editable={!isLoading && isLLMReady()}
-        />
-        <TouchableOpacity
-          style={[styles.sendButton, (!inputText.trim() || isLoading) && styles.sendButtonDisabled]}
-          onPress={handleSend}
-          disabled={!inputText.trim() || isLoading}
-        >
-          <Ionicons name="send" size={20} color="#fff" />
-        </TouchableOpacity>
+      <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
+        {/* Image preview */}
+        {selectedImage && (
+          <View style={styles.imagePreviewContainer}>
+            <Image source={{ uri: selectedImage }} style={styles.imagePreview} />
+            <TouchableOpacity
+              style={styles.removeImageButton}
+              onPress={() => setSelectedImage(null)}
+            >
+              <Ionicons name="close-circle" size={24} color="#ef4444" />
+            </TouchableOpacity>
+          </View>
+        )}
+        
+        <View style={styles.inputRow}>
+          {/* Image picker button */}
+          <TouchableOpacity
+            style={[styles.imageButton, !isVisionEnabled() && styles.imageButtonDisabled]}
+            onPress={showImageOptions}
+            disabled={isLoading || !isVisionEnabled()}
+          >
+            <Ionicons name="image" size={24} color={isVisionEnabled() ? "#6366f1" : "#475569"} />
+          </TouchableOpacity>
+          
+          <TextInput
+            style={styles.textInput}
+            placeholder={selectedImage ? "Ask about this image..." : "Type your message..."}
+            placeholderTextColor="#94a3b8"
+            value={inputText}
+            onChangeText={setInputText}
+            multiline
+            maxLength={1000}
+            editable={!isLoading && isLLMReady()}
+          />
+          <TouchableOpacity
+            style={[styles.sendButton, (!inputText.trim() && !selectedImage || isLoading) && styles.sendButtonDisabled]}
+            onPress={handleSend}
+            disabled={(!inputText.trim() && !selectedImage) || isLoading}
+          >
+            <Ionicons name="send" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -302,12 +399,44 @@ const styles = StyleSheet.create({
     color: '#e2e8f0',
   },
   inputContainer: {
-    flexDirection: 'row',
     padding: 12,
-    gap: 10,
     backgroundColor: '#1e293b',
     borderTopWidth: 1,
     borderTopColor: '#334155',
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  imagePreviewContainer: {
+    marginBottom: 12,
+    position: 'relative',
+    alignSelf: 'flex-start',
+  },
+  imagePreview: {
+    width: 100,
+    height: 100,
+    borderRadius: 12,
+    backgroundColor: '#334155',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#0f172a',
+    borderRadius: 12,
+  },
+  imageButton: {
+    width: 44,
+    height: 44,
+    backgroundColor: '#334155',
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageButtonDisabled: {
+    opacity: 0.5,
   },
   textInput: {
     flex: 1,

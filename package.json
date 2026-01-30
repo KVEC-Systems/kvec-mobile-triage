@@ -20,6 +20,7 @@
     "expo-clipboard": "~8.0.8",
     "expo-dev-client": "~6.0.20",
     "expo-file-system": "^19.0.21",
+    "expo-image-picker": "^17.0.10",
     "expo-llm-mediapipe": "^0.6.0",
     "expo-router": "^6.0.22",
     "expo-status-bar": "~3.0.9",

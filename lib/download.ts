@@ -30,6 +30,11 @@ const MODELS = {
     file: 'medgemma-4b-it-Q4_K_M.gguf',
     size: 2490000000, // ~2.49GB
   },
+  medgemmaMmproj: {
+    repo: 'unsloth/medgemma-4b-it-GGUF',
+    file: 'mmproj-medgemma-4b-it-F16.gguf',
+    size: 945000000, // ~945MB (F16 for mobile compatibility)
+  },
   medasrOnnx: {
     repo: 'csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25',
     file: 'model.int8.onnx',
@@ -52,7 +57,9 @@ export interface DownloadProgress {
 export interface ModelStatus {
   medgemma: {
     ggufExists: boolean;
+    mmprojExists: boolean;
     ggufPath: string;
+    mmprojPath: string;
   };
   medasr: {
     onnxExists: boolean;
@@ -82,12 +89,14 @@ function getDownloadUrl(modelKey: keyof typeof MODELS): string {
  */
 export async function checkModelStatus(): Promise<ModelStatus> {
   const ggufPath = getModelPath(MODELS.medgemmaGguf.file);
+  const mmprojPath = getModelPath(MODELS.medgemmaMmproj.file);
   const onnxPath = getModelPath(MODELS.medasrOnnx.file);
   const tokensPath = getModelPath(MODELS.medasrTokens.file);
   
   try {
-    const [ggufInfo, onnxInfo, tokensInfo] = await Promise.all([
+    const [ggufInfo, mmprojInfo, onnxInfo, tokensInfo] = await Promise.all([
       getInfoAsync(ggufPath),
+      getInfoAsync(mmprojPath),
       getInfoAsync(onnxPath),
       getInfoAsync(tokensPath),
     ]);
@@ -95,7 +104,9 @@ export async function checkModelStatus(): Promise<ModelStatus> {
     return {
       medgemma: {
         ggufExists: ggufInfo.exists,
+        mmprojExists: mmprojInfo.exists,
         ggufPath,
+        mmprojPath,
       },
       medasr: {
         onnxExists: onnxInfo.exists,
@@ -108,7 +119,9 @@ export async function checkModelStatus(): Promise<ModelStatus> {
     return {
       medgemma: {
         ggufExists: false,
+        mmprojExists: false,
         ggufPath,
+        mmprojPath,
       },
       medasr: {
         onnxExists: false,
@@ -180,17 +193,23 @@ async function downloadFile(
 }
 
 /**
- * Download MedGemma model
+ * Download MedGemma model and mmproj for vision
  */
 export async function downloadMedGemmaModel(
   onProgress?: (progress: DownloadProgress) => void
 ): Promise<boolean> {
   try {
+    // Download main model
     await downloadFile('medgemmaGguf', onProgress);
     console.log('MedGemma model download complete');
+    
+    // Download mmproj for vision support
+    await downloadFile('medgemmaMmproj', onProgress);
+    console.log('MedGemma mmproj download complete');
+    
     return true;
   } catch (error) {
-    console.error('Failed to download MedGemma model:', error);
+    console.error('Failed to download MedGemma models:', error);
     return false;
   }
 }
@@ -261,6 +280,9 @@ export async function getRemainingDownloadSize(): Promise<number> {
   if (!status.medgemma.ggufExists) {
     size += MODELS.medgemmaGguf.size;
   }
+  if (!status.medgemma.mmprojExists) {
+    size += MODELS.medgemmaMmproj.size;
+  }
   
   return size;
 }
@@ -280,10 +302,10 @@ export function formatBytes(bytes: number): string {
  */
 export async function areModelsReady(): Promise<boolean> {
   const status = await checkModelStatus();
+  // Note: medasr is optional (disabled for now), mmproj is optional for vision
   return (
     status.medgemma.ggufExists &&
-    status.medasr.onnxExists &&
-    status.medasr.tokensExists
+    status.medgemma.mmprojExists
   );
 }
 
@@ -292,6 +314,13 @@ export async function areModelsReady(): Promise<boolean> {
  */
 export function getGgufModelPath(): string {
   return `${documentDirectory}models/${MODELS.medgemmaGguf.file}`;
+}
+
+/**
+ * Get the path to the mmproj file for multimodal vision
+ */
+export function getMmprojPath(): string {
+  return `${documentDirectory}models/${MODELS.medgemmaMmproj.file}`;
 }
 
 /**

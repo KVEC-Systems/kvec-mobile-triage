@@ -19,7 +19,8 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "This app uses the microphone to record patient notes for transcription."
-      }
+      },
+      "appleTeamId": "22LTH5B2F4"
     },
     "android": {
       "adaptiveIcon": {
@@ -28,7 +29,10 @@
       },
       "package": "com.KVEC.triage",
       "edgeToEdgeEnabled": true,
-      "permissions": ["android.permission.RECORD_AUDIO"],
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
       "softwareKeyboardLayoutMode": "resize"
     },
     "web": {

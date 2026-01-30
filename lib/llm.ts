@@ -4,16 +4,22 @@
  */
 
 import { initLlama, type LlamaContext } from 'llama.rn';
-import { getGgufModelPath } from './download';
+import { getGgufModelPath, getMmprojPath } from './download';
 
 // LLM context singleton
 let llamaContext: LlamaContext | null = null;
 let isInitializing = false;
+let isMultimodalEnabled = false;
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
-  content: string;
+  content: string | ChatMessageContent[];
 }
+
+// Support for multimodal message content
+export type ChatMessageContent = 
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } };
 
 /**
  * Initialize the LLM with the downloaded GGUF model
@@ -41,9 +47,41 @@ export async function initializeLLM(): Promise<boolean> {
       n_batch: 512,     // Batch size for prompt processing
       n_threads: 4,     // Number of threads
       n_gpu_layers: 99, // Offload layers to GPU (Metal on iOS, OpenCL on Android)
+      ctx_shift: false, // Required for multimodal - disable context shifting
     });
     
     console.log('LLM initialized successfully');
+    
+    // Initialize multimodal support with mmproj
+    try {
+      const mmprojPath = getMmprojPath();
+      console.log('Initializing multimodal from:', mmprojPath);
+      
+      // Check if file exists and log size
+      const { getInfoAsync } = await import('expo-file-system');
+      const fileInfo = await getInfoAsync(mmprojPath);
+      console.log('mmproj file info:', JSON.stringify(fileInfo));
+      
+      if (!fileInfo.exists) {
+        console.warn('mmproj file does not exist at path');
+      } else {
+        const success = await llamaContext.initMultimodal({
+          path: mmprojPath,
+          use_gpu: true,
+        });
+        
+        if (success) {
+          isMultimodalEnabled = true;
+          const support = await llamaContext.getMultimodalSupport();
+          console.log('Multimodal enabled - Vision:', support?.vision, 'Audio:', support?.audio);
+        } else {
+          console.log('Multimodal initialization returned false - mmproj may be incompatible with model');
+        }
+      }
+    } catch (mmError) {
+      console.warn('Multimodal init failed (vision disabled):', mmError);
+    }
+    
     isInitializing = false;
     return true;
   } catch (error) {
@@ -51,6 +89,13 @@ export async function initializeLLM(): Promise<boolean> {
     isInitializing = false;
     return false;
   }
+}
+
+/**
+ * Check if multimodal vision is available
+ */
+export function isVisionEnabled(): boolean {
+  return isMultimodalEnabled;
 }
 
 /**
