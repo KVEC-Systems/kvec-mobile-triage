@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { areModelsReady } from '../lib/download';
 import { initializeLLM, generateResponse, isLLMReady, type ChatMessage } from '../lib/llm';
+import { HamburgerMenu } from '../components/HamburgerMenu';
 
 export default function ChatScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -112,9 +113,15 @@ export default function ChatScreen() {
     >
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <View style={styles.headerContent}>
-          <Ionicons name="medical" size={28} color="#6366f1" />
-          <Text style={styles.headerTitle}>MedGemma</Text>
+        <View style={styles.headerRow}>
+          <HamburgerMenu />
+          
+          <View style={styles.headerContent}>
+            <Ionicons name="medical" size={28} color="#6366f1" />
+            <Text style={styles.headerTitle}>MedGemma</Text>
+          </View>
+          
+          <View style={{ width: 44 }} />
         </View>
         {isLoadingModel && (
           <Text style={styles.loadingModelText}>Loading model...</Text>
@@ -217,6 +224,19 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#334155',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  menuButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    backgroundColor: '#334155',
   },
   headerContent: {
     flexDirection: 'row',

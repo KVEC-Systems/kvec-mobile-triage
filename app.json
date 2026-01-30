@@ -17,7 +17,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.KVEC.triage",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMicrophoneUsageDescription": "This app uses the microphone to record patient notes for transcription."
       }
     },
     "android": {
@@ -26,7 +27,8 @@
         "backgroundColor": "#1a365d"
       },
       "package": "com.KVEC.triage",
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": ["android.permission.RECORD_AUDIO"]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -34,9 +36,12 @@
     },
     "plugins": [
       "expo-router",
-      "expo-llm-mediapipe",
-      "expo-asset",
-      "onnxruntime-react-native"
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for recording patient notes."
+        }
+      ]
     ],
     "extra": {
       "router": {},

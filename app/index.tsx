@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,25 +9,110 @@ import {
   ScrollView,
   Alert,
   Platform,
+  LayoutAnimation,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { useAudioRecorder } from '@siteed/expo-audio-studio';
 import * as Clipboard from 'expo-clipboard';
 import { areModelsReady } from '../lib/download';
 import { initializeLLM, generatePCR, isLLMReady } from '../lib/llm';
+import { HamburgerMenu } from '../components/HamburgerMenu';
 
 type Screen = 'record' | 'transcript' | 'pcr';
 
+// Parse thinking tokens from LLM output
+function parseThinkingTokens(text: string): { thinking: string | null; content: string } {
+  const thinkingStart = '<unused94>thought';
+  const thinkingEnd = '<unused95>';
+  
+  const startIdx = text.indexOf(thinkingStart);
+  const endIdx = text.indexOf(thinkingEnd);
+  
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    const thinking = text.substring(startIdx + thinkingStart.length, endIdx).trim();
+    const content = text.substring(endIdx + thinkingEnd.length).trim();
+    return { thinking, content };
+  }
+  
+  return { thinking: null, content: text };
+}
+
+// Collapsible Thinking Box Component
+function ThinkingBox({ thinking }: { thinking: string }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  const toggleExpanded = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsExpanded(!isExpanded);
+  };
+  
+  return (
+    <View style={thinkingStyles.container}>
+      <TouchableOpacity style={thinkingStyles.header} onPress={toggleExpanded}>
+        <Ionicons 
+          name="bulb-outline" 
+          size={16} 
+          color="#a78bfa" 
+        />
+        <Text style={thinkingStyles.headerText}>Thinking</Text>
+        <Ionicons 
+          name={isExpanded ? 'chevron-up' : 'chevron-down'} 
+          size={16} 
+          color="#a78bfa" 
+        />
+      </TouchableOpacity>
+      {isExpanded && (
+        <View style={thinkingStyles.content}>
+          <Text style={thinkingStyles.contentText}>{thinking}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const thinkingStyles = StyleSheet.create({
+  container: {
+    backgroundColor: '#1e1b4b',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#4c1d95',
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+  },
+  headerText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#a78bfa',
+  },
+  content: {
+    padding: 12,
+    paddingTop: 0,
+    borderTopWidth: 1,
+    borderTopColor: '#4c1d95',
+  },
+  contentText: {
+    fontSize: 12,
+    color: '#c4b5fd',
+    lineHeight: 18,
+  },
+});
+
 export default function PCRRecorderScreen() {
-  const [screen, setScreen] = useState<Screen>('record');
+  const [screen, setScreen] = useState<Screen>('transcript'); // Start with notes input
   const [isCheckingModels, setIsCheckingModels] = useState(true);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   
-  // Recording state
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
+  // Recording state - using expo-audio-studio
+  const audioRecorder = useAudioRecorder();
   const [recordingDuration, setRecordingDuration] = useState(0);
   const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   
@@ -64,21 +149,28 @@ export default function PCRRecorderScreen() {
     checkModels();
   }, []);
 
-  // Recording functions
+  // Recording functions using expo-audio-studio
   const startRecording = useCallback(async () => {
     try {
-      await Audio.requestPermissionsAsync();
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      // Request permission using expo-audio-studio
+      const { ExpoAudioStreamModule } = await import('@siteed/expo-audio-studio');
+      const { granted } = await ExpoAudioStreamModule.requestPermissionsAsync();
+      
+      if (!granted) {
+        Alert.alert('Permission Denied', 'Microphone permission is required to record audio.');
+        return;
+      }
+      
+      // Start recording with 16kHz mono PCM for ASR
+      // Disable notification/keepAwake to avoid foreground service issues
+      await audioRecorder.startRecording({
+        sampleRate: 16000,
+        channels: 1,
+        encoding: 'pcm_16bit',
+        showNotification: false,
+        keepAwake: false,
       });
       
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      
-      setRecording(newRecording);
-      setIsRecording(true);
       setRecordingDuration(0);
       
       // Start timer
@@ -89,10 +181,10 @@ export default function PCRRecorderScreen() {
       console.error('Failed to start recording:', error);
       Alert.alert('Error', 'Failed to start recording');
     }
-  }, []);
+  }, [audioRecorder]);
 
   const stopRecording = useCallback(async () => {
-    if (!recording) return;
+    if (!audioRecorder.isRecording) return;
     
     try {
       if (recordingTimer.current) {
@@ -100,28 +192,18 @@ export default function PCRRecorderScreen() {
         recordingTimer.current = null;
       }
       
-      setIsRecording(false);
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
-      setRecording(null);
+      const result = await audioRecorder.stopRecording();
       
-      if (uri) {
-        // TODO: Transcribe using MedASR
-        // For now, show placeholder and move to transcript screen
-        setIsTranscribing(true);
-        
-        // Simulate transcription delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Placeholder - actual transcription will come from ASR
-        setTranscript(`[Recording ${formatTime(recordingDuration)}]\n\nType or edit your clinical notes here. The AI will generate a PCR from this text.`);
-        setIsTranscribing(false);
+      if (result?.fileUri) {
+        // ASR disabled - requires mel spectrogram preprocessing
+        // For now, prompt user to type their notes
+        setTranscript(`[Recording saved: ${formatTime(recordingDuration)}]\n\nType your clinical notes here. The AI will generate a PCR from this text.`);
         setScreen('transcript');
       }
     } catch (error) {
       console.error('Failed to stop recording:', error);
     }
-  }, [recording, recordingDuration]);
+  }, [audioRecorder, recordingDuration]);
 
   // Generate PCR
   const handleGeneratePCR = useCallback(async () => {
@@ -148,9 +230,10 @@ export default function PCRRecorderScreen() {
     }
   }, [transcript]);
 
-  // Copy PCR to clipboard
+  // Copy PCR to clipboard (content only, no thinking tokens)
   const handleCopy = useCallback(async () => {
-    await Clipboard.setStringAsync(pcrText);
+    const { content } = parseThinkingTokens(pcrText);
+    await Clipboard.setStringAsync(content);
     Alert.alert('Copied', 'PCR copied to clipboard');
   }, [pcrText]);
 
@@ -183,14 +266,12 @@ export default function PCRRecorderScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Ionicons name="medical" size={28} color="#6366f1" />
-        <Text style={styles.headerTitle}>EMS PCR Generator</Text>
-        <TouchableOpacity 
-          style={styles.chatButton}
-          onPress={() => router.push('/chat')}
-        >
-          <Ionicons name="chatbubbles-outline" size={22} color="#94a3b8" />
-        </TouchableOpacity>
+        <HamburgerMenu />
+        <View style={styles.headerTitleContainer}>
+          <Ionicons name="medical" size={28} color="#6366f1" />
+          <Text style={styles.headerTitle}>Patient Care Report</Text>
+        </View>
+        <View style={{ width: 44 }} />
       </View>
       
       {isLoadingModels && (
@@ -206,7 +287,7 @@ export default function PCRRecorderScreen() {
           <View style={styles.recordingArea}>
             <Text style={styles.durationText}>{formatTime(recordingDuration)}</Text>
             
-            {isRecording && (
+            {audioRecorder.isRecording && (
               <View style={styles.recordingIndicator}>
                 <View style={styles.recordingDot} />
                 <Text style={styles.recordingLabel}>Recording...</Text>
@@ -214,18 +295,18 @@ export default function PCRRecorderScreen() {
             )}
             
             <TouchableOpacity
-              style={[styles.recordButton, isRecording && styles.recordButtonActive]}
-              onPress={isRecording ? stopRecording : startRecording}
+              style={[styles.recordButton, audioRecorder.isRecording && styles.recordButtonActive]}
+              onPress={audioRecorder.isRecording ? stopRecording : startRecording}
             >
               <Ionicons 
-                name={isRecording ? 'stop' : 'mic'} 
+                name={audioRecorder.isRecording ? 'stop' : 'mic'} 
                 size={48} 
                 color="#fff" 
               />
             </TouchableOpacity>
             
             <Text style={styles.recordHint}>
-              {isRecording 
+              {audioRecorder.isRecording 
                 ? 'Tap to stop recording' 
                 : 'Tap to start recording your notes'}
             </Text>
@@ -243,20 +324,40 @@ export default function PCRRecorderScreen() {
         </View>
       )}
 
-      {/* Transcript Screen */}
+      {/* Clinical Notes Screen (Main) */}
       {screen === 'transcript' && (
         <View style={styles.screenContent}>
           {isTranscribing ? (
             <View style={styles.transcribingContainer}>
               <ActivityIndicator size="large" color="#6366f1" />
-              <Text style={styles.transcribingText}>Transcribing audio...</Text>
+              <Text style={styles.transcribingText}>Processing...</Text>
             </View>
           ) : (
             <>
-              <Text style={styles.sectionTitle}>Review & Edit Transcript</Text>
+              <View style={styles.notesHeader}>
+                <Text style={styles.sectionTitle}>Clinical Notes</Text>
+                
+                {/* Inline Recording Controls */}
+                <View style={styles.micContainer}>
+                  {audioRecorder.isRecording && (
+                    <Text style={styles.micDuration}>{formatTime(recordingDuration)}</Text>
+                  )}
+                  <TouchableOpacity
+                    style={[styles.micButton, audioRecorder.isRecording && styles.micButtonActive]}
+                    onPress={audioRecorder.isRecording ? stopRecording : startRecording}
+                  >
+                    <Ionicons 
+                      name={audioRecorder.isRecording ? 'stop' : 'mic'} 
+                      size={22} 
+                      color={audioRecorder.isRecording ? '#ef4444' : '#6366f1'} 
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              
               <TextInput
                 style={styles.transcriptInput}
-                placeholder="Enter or edit your clinical notes..."
+                placeholder="Enter your clinical notes here...\n\nExample: 65 yo male, chest pain, A&O x4, BP 158/94..."
                 placeholderTextColor="#64748b"
                 value={transcript}
                 onChangeText={setTranscript}
@@ -264,15 +365,7 @@ export default function PCRRecorderScreen() {
                 textAlignVertical="top"
               />
               
-              <View style={styles.buttonRow}>
-                <TouchableOpacity
-                  style={styles.secondaryButton}
-                  onPress={() => setScreen('record')}
-                >
-                  <Ionicons name="arrow-back" size={20} color="#94a3b8" />
-                  <Text style={styles.secondaryButtonText}>Back</Text>
-                </TouchableOpacity>
-                
+              <View style={[styles.buttonRow, { paddingBottom: insets.bottom + 16 }]}>
                 <TouchableOpacity
                   style={[styles.primaryButton, !transcript.trim() && styles.buttonDisabled]}
                   onPress={handleGeneratePCR}
@@ -293,9 +386,19 @@ export default function PCRRecorderScreen() {
           <Text style={styles.sectionTitle}>Patient Care Report</Text>
           
           <ScrollView style={styles.pcrContainer}>
-            <Text style={styles.pcrText}>
-              {streamingPcr || pcrText || 'Generating...'}
-            </Text>
+            {(() => {
+              const displayText = streamingPcr || pcrText || '';
+              const { thinking, content } = parseThinkingTokens(displayText);
+              
+              return (
+                <>
+                  {thinking && <ThinkingBox thinking={thinking} />}
+                  <Text style={styles.pcrText}>
+                    {content || (isGenerating ? 'Generating...' : '')}
+                  </Text>
+                </>
+              );
+            })()}
             {isGenerating && (
               <ActivityIndicator size="small" color="#6366f1" style={styles.generatingIndicator} />
             )}
@@ -369,6 +472,11 @@ const styles = StyleSheet.create({
   },
   chatButton: {
     padding: 8,
+  },
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   modelLoadingBanner: {
     flexDirection: 'row',
@@ -546,5 +654,35 @@ const styles = StyleSheet.create({
   newButtonText: {
     fontSize: 14,
     color: '#6366f1',
+  },
+  notesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  micContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  micDuration: {
+    fontSize: 14,
+    color: '#ef4444',
+    fontWeight: '600',
+  },
+  micButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#1e293b',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#6366f1',
+  },
+  micButtonActive: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#ef4444',
   },
 });

@@ -92,25 +92,47 @@ export async function transcribeAudio(audioUri: string): Promise<string> {
   try {
     console.log('[ASR] Transcribing audio:', audioUri);
     
-    // TODO: Load and preprocess audio file
-    // For now, this is a placeholder - need to:
-    // 1. Read WAV file
-    // 2. Convert to 16kHz if needed
-    // 3. Normalize to float32 [-1, 1]
-    // 4. Create input tensor
+    // Import dynamically to avoid circular dependency
+    const { preprocessAudioForASR } = await import('./audio');
     
-    // Placeholder: Return empty for now until audio processing is implemented
-    console.log('[ASR] Audio processing not yet implemented');
-    return '[Audio transcription will appear here]';
+    // Load and preprocess audio
+    const audioData = await preprocessAudioForASR(audioUri);
+    console.log('[ASR] Audio preprocessed, samples:', audioData.length);
     
-    // Once audio processing is implemented:
-    // const audioData = await loadAndPreprocessAudio(audioUri);
-    // const inputTensor = new Tensor('float32', audioData, [1, audioData.length]);
-    // const feeds = { [asrSession.inputNames[0]]: inputTensor };
-    // const results = await asrSession.run(feeds);
-    // const outputTensor = results[asrSession.outputNames[0]];
-    // const logits = outputTensor.data as Float32Array;
-    // return ctcGreedyDecode(logits, vocabulary.length, outputTensor.dims[1]);
+    // Create input tensors
+    // MedASR expects 'x' [batch, time, 1] and 'mask' [batch, time, 1]
+    const inputTensor = new Tensor('float32', audioData, [1, audioData.length, 1]);
+    
+    // Create mask tensor (all 1s = all samples are valid)
+    const maskData = new Float32Array(audioData.length).fill(1);
+    const maskTensor = new Tensor('float32', maskData, [1, audioData.length, 1]);
+    
+    console.log('[ASR] Running inference with inputs:', asrSession.inputNames);
+    
+    // Run inference with both required inputs
+    const feeds: Record<string, Tensor> = { 
+      'x': inputTensor,
+      'mask': maskTensor,
+    };
+    const results = await asrSession.run(feeds);
+    
+    // Get output
+    const outputName = asrSession.outputNames[0];
+    const outputTensor = results[outputName];
+    const logits = outputTensor.data as Float32Array;
+    
+    // Get dimensions - typically [batch, time, vocab]
+    const dims = outputTensor.dims;
+    console.log('[ASR] Output dims:', dims);
+    
+    const seqLength = dims.length === 3 ? dims[1] : dims[0];
+    const vocabSize = dims.length === 3 ? dims[2] : vocabulary.length;
+    
+    // Decode with CTC
+    const transcript = ctcGreedyDecode(logits, vocabSize as number, seqLength as number);
+    console.log('[ASR] Transcription complete:', transcript.substring(0, 50) + '...');
+    
+    return transcript || '[No speech detected]';
   } catch (error) {
     console.error('[ASR] Transcription failed:', error);
     throw error;

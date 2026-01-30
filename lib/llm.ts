@@ -40,7 +40,7 @@ export async function initializeLLM(): Promise<boolean> {
       n_ctx: 2048,      // Context size
       n_batch: 512,     // Batch size for prompt processing
       n_threads: 4,     // Number of threads
-      n_gpu_layers: 0,  // CPU only for now
+      n_gpu_layers: 99, // Offload layers to GPU (Metal on iOS, OpenCL on Android)
     });
     
     console.log('LLM initialized successfully');
@@ -74,9 +74,9 @@ export async function generateResponse(
   
   const result = await llamaContext.completion({
     prompt,
-    n_predict: 512,    // Max tokens to generate
-    temperature: 0.7,
-    top_p: 0.9,
+    n_predict: 2048,    // Max tokens to generate (enough for complex PCRs)
+    temperature: 0.3,   // Low temp for consistent, factual output
+    top_p: 0.95,         // Slightly higher top_p for coherence
     stop: ['<end_of_turn>', '<eos>'],
   }, (token) => {
     response += token.token;
@@ -131,17 +131,7 @@ export async function generatePCR(
   transcript: string,
   onToken?: (token: string) => void
 ): Promise<string> {
-  const systemPrompt = `You are an EMS documentation assistant. Generate a structured Patient Care Report (PCR) from the following transcript of a first responder's verbal notes. Format the output as plain text that can be copied into an ePCR system.
-
-Include these sections (skip any section without information):
-- PATIENT: Age, sex, chief complaint
-- DISPATCH: Call type, priority
-- ASSESSMENT: Mental status, airway, breathing, circulation, vitals
-- INTERVENTIONS: Medications, procedures, treatments given
-- TRANSPORT: Destination, changes en route
-- HANDOFF: Receiving staff, report summary
-
-Be concise and use standard medical abbreviations (pt, yo, LOC, GCS, BP, HR, RR, SpO2, etc).`;
+  const systemPrompt = `DO NOT THINK. Generate a structured Patient Care Report (PCR) from the following transcript of a first responder's verbal notes. Format the output as plain text that can be copied into an ePCR system. Be concise and use standard medical abbreviations (pt, yo, LOC, GCS, BP, HR, RR, SpO2, etc).`;
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },

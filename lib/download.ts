@@ -26,9 +26,9 @@ const HF_BASE = 'https://huggingface.co';
 // Model configuration
 const MODELS = {
   medgemmaGguf: {
-    repo: 'ekim1394/medgemma-4b-iq2_xxs-gguf',
-    file: 'medgemma-4b-iq2_xxs.gguf',
-    size: 1310000000, // ~1.31GB
+    repo: 'unsloth/medgemma-4b-it-GGUF',
+    file: 'medgemma-4b-it-Q4_K_M.gguf',
+    size: 2490000000, // ~2.49GB
   },
   medasrOnnx: {
     repo: 'csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25',
