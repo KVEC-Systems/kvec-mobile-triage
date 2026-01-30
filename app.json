@@ -28,7 +28,8 @@
       },
       "package": "com.KVEC.triage",
       "edgeToEdgeEnabled": true,
-      "permissions": ["android.permission.RECORD_AUDIO"]
+      "permissions": ["android.permission.RECORD_AUDIO"],
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "favicon": "./assets/favicon.png",

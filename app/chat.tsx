@@ -6,11 +6,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { areModelsReady } from '../lib/download';
@@ -108,7 +107,7 @@ export default function ChatScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior="padding"
       style={styles.container}
     >
       {/* Header */}
