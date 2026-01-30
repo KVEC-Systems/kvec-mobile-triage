@@ -118,7 +118,11 @@ export default function ChatScreen() {
     
     // Build message content (text + optional image)
     let messageContent: string | ChatMessageContent[];
-    if (selectedImage && isVisionEnabled()) {
+    if (selectedImage) {
+      console.log('Selected image URI:', selectedImage);
+      console.log('Vision enabled:', isVisionEnabled());
+      
+      // Always include image in message for display, even if vision not enabled
       messageContent = [
         { type: 'text', text: inputText.trim() || 'What do you see in this image?' },
         { type: 'image_url', image_url: { url: selectedImage } },
@@ -216,22 +220,40 @@ export default function ChatScreen() {
           </View>
         )}
         
-        {messages.map((msg, idx) => (
-          <View
-            key={idx}
-            style={[
-              styles.messageBubble,
-              msg.role === 'user' ? styles.userBubble : styles.assistantBubble,
-            ]}
-          >
-            <Text style={[
-              styles.messageText,
-              msg.role === 'user' ? styles.userText : styles.assistantText,
-            ]}>
-              {getMessageText(msg.content)}
-            </Text>
-          </View>
-        ))}
+        {messages.map((msg, idx) => {
+          // Extract image URL if present
+          const imageUrl = Array.isArray(msg.content) 
+            ? msg.content.find(
+                (item): item is { type: 'image_url'; image_url: { url: string } } => 
+                  item.type === 'image_url'
+              )?.image_url.url
+            : undefined;
+          
+          return (
+            <View
+              key={idx}
+              style={[
+                styles.messageBubble,
+                msg.role === 'user' ? styles.userBubble : styles.assistantBubble,
+              ]}
+            >
+              {imageUrl && (
+                <Image 
+                  source={{ uri: imageUrl }} 
+                  style={styles.messageImage}
+                  resizeMode="cover"
+                  onError={(e) => console.log('Image load error:', e.nativeEvent.error, 'uri:', imageUrl)}
+                />
+              )}
+              <Text style={[
+                styles.messageText,
+                msg.role === 'user' ? styles.userText : styles.assistantText,
+              ]}>
+                {getMessageText(msg.content)}
+              </Text>
+            </View>
+          );
+        })}
         
         {/* Streaming response */}
         {streamingText && (
@@ -391,6 +413,13 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 15,
     lineHeight: 22,
+  },
+  messageImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 8,
+    backgroundColor: '#1e293b',
   },
   userText: {
     color: '#fff',

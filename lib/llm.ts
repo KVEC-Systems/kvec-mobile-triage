@@ -58,7 +58,7 @@ export async function initializeLLM(): Promise<boolean> {
       console.log('Initializing multimodal from:', mmprojPath);
       
       // Check if file exists and log size
-      const { getInfoAsync } = await import('expo-file-system');
+      const { getInfoAsync } = await import('expo-file-system/legacy');
       const fileInfo = await getInfoAsync(mmprojPath);
       console.log('mmproj file info:', JSON.stringify(fileInfo));
       
@@ -112,16 +112,63 @@ export async function generateResponse(
     throw new Error('LLM not initialized. Call initializeLLM() first.');
   }
   
+  // Extract image URL from messages if present
+  let imageUrl: string | undefined;
+  for (const msg of messages) {
+    if (Array.isArray(msg.content)) {
+      const imageContent = msg.content.find(
+        (item): item is { type: 'image_url'; image_url: { url: string } } => 
+          item.type === 'image_url'
+      );
+      if (imageContent) {
+        imageUrl = imageContent.image_url.url;
+        break;
+      }
+    }
+  }
+  
   // Format messages for Gemma chat template
   const prompt = formatChatPrompt(messages);
   
   let response = '';
   
+  // If we have an image and multimodal is enabled, use vision completion
+  if (imageUrl && isMultimodalEnabled) {
+    console.log('Using multimodal completion with image:', imageUrl);
+    
+    // Get the file path - imageUrl from expo-image-picker is a file:// URI
+    const imagePath = imageUrl.startsWith('file://') 
+      ? imageUrl.replace('file://', '') 
+      : imageUrl;
+    
+    try {
+      const result = await llamaContext.completion({
+        prompt,
+        n_predict: 2048,
+        temperature: 0.3,
+        top_p: 0.95,
+        stop: ['<end_of_turn>', '<eos>'],
+        media_paths: [imagePath],
+      }, (token) => {
+        response += token.token;
+        if (onToken) {
+          onToken(token.token);
+        }
+      });
+      
+      return response.trim();
+    } catch (imgError) {
+      console.warn('Failed multimodal completion:', imgError);
+      // Fall through to text-only completion
+    }
+  }
+  
+  // Standard text completion
   const result = await llamaContext.completion({
     prompt,
-    n_predict: 2048,    // Max tokens to generate (enough for complex PCRs)
-    temperature: 0.3,   // Low temp for consistent, factual output
-    top_p: 0.95,         // Slightly higher top_p for coherence
+    n_predict: 2048,
+    temperature: 0.3,
+    top_p: 0.95,
     stop: ['<end_of_turn>', '<eos>'],
   }, (token) => {
     response += token.token;
@@ -140,12 +187,23 @@ function formatChatPrompt(messages: ChatMessage[]): string {
   let prompt = '';
   
   for (const msg of messages) {
+    // Extract text content from message
+    let textContent: string;
+    if (typeof msg.content === 'string') {
+      textContent = msg.content;
+    } else {
+      textContent = msg.content
+        .filter((item): item is { type: 'text'; text: string } => item.type === 'text')
+        .map(item => item.text)
+        .join('\n');
+    }
+    
     if (msg.role === 'system') {
-      prompt += `<start_of_turn>user\n${msg.content}<end_of_turn>\n`;
+      prompt += `<start_of_turn>user\n${textContent}<end_of_turn>\n`;
     } else if (msg.role === 'user') {
-      prompt += `<start_of_turn>user\n${msg.content}<end_of_turn>\n`;
+      prompt += `<start_of_turn>user\n${textContent}<end_of_turn>\n`;
     } else if (msg.role === 'assistant') {
-      prompt += `<start_of_turn>model\n${msg.content}<end_of_turn>\n`;
+      prompt += `<start_of_turn>model\n${textContent}<end_of_turn>\n`;
     }
   }
   

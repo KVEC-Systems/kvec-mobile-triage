@@ -32,7 +32,7 @@ const MODELS = {
   },
   medgemmaMmproj: {
     repo: 'unsloth/medgemma-4b-it-GGUF',
-    file: 'mmproj-medgemma-4b-it-F16.gguf',
+    file: 'mmproj-F16.gguf',
     size: 945000000, // ~945MB (F16 for mobile compatibility)
   },
   medasrOnnx: {
@@ -101,16 +101,23 @@ export async function checkModelStatus(): Promise<ModelStatus> {
       getInfoAsync(tokensPath),
     ]);
     
+    // Validate file sizes (must be at least 80% of expected size)
+    const isValidSize = (info: typeof ggufInfo, expectedSize: number) => {
+      if (!info.exists) return false;
+      const fileSize = (info as { size?: number }).size || 0;
+      return fileSize >= expectedSize * 0.8;
+    };
+    
     return {
       medgemma: {
-        ggufExists: ggufInfo.exists,
-        mmprojExists: mmprojInfo.exists,
+        ggufExists: isValidSize(ggufInfo, MODELS.medgemmaGguf.size),
+        mmprojExists: isValidSize(mmprojInfo, MODELS.medgemmaMmproj.size),
         ggufPath,
         mmprojPath,
       },
       medasr: {
-        onnxExists: onnxInfo.exists,
-        tokensExists: tokensInfo.exists,
+        onnxExists: isValidSize(onnxInfo, MODELS.medasrOnnx.size),
+        tokensExists: isValidSize(tokensInfo, MODELS.medasrTokens.size),
         onnxPath,
         tokensPath,
       },
