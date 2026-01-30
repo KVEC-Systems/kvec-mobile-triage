@@ -357,7 +357,7 @@ export default function PCRRecorderScreen() {
               
               <TextInput
                 style={styles.transcriptInput}
-                placeholder="Enter your clinical notes here...\n\nExample: 65 yo male, chest pain, A&O x4, BP 158/94..."
+                placeholder="Enter your clinical notes here..."
                 placeholderTextColor="#64748b"
                 value={transcript}
                 onChangeText={setTranscript}
