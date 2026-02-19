@@ -22,31 +22,24 @@ import { checkModelStatus, formatBytes, type ModelStatus } from '@/lib/download'
 const MODEL_INFO = {
   medgemmaGguf: {
     name: 'MedGemma 4B',
-    description: 'Medical-tuned LLM for PCR generation',
+    description: 'Medical-tuned LLM for PCR generation and clinical chat',
     file: 'medgemma-4b-it-Q4_K_M.gguf',
     repo: 'unsloth/medgemma-4b-it-GGUF',
     size: 2490000000,
   },
   medgemmaMmproj: {
     name: 'MedGemma Vision Projector',
-    description: 'Multimodal vision support for image analysis',
+    description: 'Multimodal vision support for medical image analysis',
     file: 'mmproj-F16.gguf',
     repo: 'unsloth/medgemma-4b-it-GGUF',
     size: 945000000,
   },
-  medasrOnnx: {
-    name: 'MedASR',
-    description: 'Medical speech recognition model',
-    file: 'model.int8.onnx',
-    repo: 'csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25',
-    size: 154000000,
-  },
-  medasrTokens: {
-    name: 'MedASR Vocabulary',
-    description: 'Token vocabulary for speech recognition',
-    file: 'tokens.txt',
-    repo: 'csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25',
-    size: 5000,
+  voxtralGguf: {
+    name: 'Voxtral Mini 4B',
+    description: 'Speech-to-text for clinical note dictation',
+    file: 'Q4_0.gguf',
+    repo: 'andrijdavid/Voxtral-Mini-4B-Realtime-2602-GGUF',
+    size: 2500000000,
   },
 };
 
@@ -74,16 +67,14 @@ export default function SettingsScreen() {
 
   const getModelDownloadStatus = (key: string): boolean => {
     if (!modelStatus) return false;
-    
+
     switch (key) {
       case 'medgemmaGguf':
         return modelStatus.medgemma.ggufExists;
       case 'medgemmaMmproj':
         return modelStatus.medgemma.mmprojExists;
-      case 'medasrOnnx':
-        return modelStatus.medasr.onnxExists;
-      case 'medasrTokens':
-        return modelStatus.medasr.tokensExists;
+      case 'voxtralGguf':
+        return modelStatus.voxtral.ggufExists;
       default:
         return false;
     }
