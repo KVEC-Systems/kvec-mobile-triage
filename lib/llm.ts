@@ -256,6 +256,34 @@ Be concise. Use bullet points within sections. Do not fabricate information not 
 }
 
 /**
+ * Generate a triage assessment from a completed PCR
+ * @param pcrText The generated PCR text
+ * @param onToken Callback for streaming tokens
+ * @returns Triage assessment text
+ */
+export async function generateTriageAssessment(
+  pcrText: string,
+  onToken?: (token: string) => void
+): Promise<string> {
+  const systemPrompt = `You are an EMS clinical decision support system. Analyze the following Patient Care Report and provide a triage assessment.
+
+Respond with exactly these sections:
+- ACUITY: ESI level (1-5) with one-line justification. ESI 1 = immediate life threat, ESI 5 = non-urgent.
+- DIFFERENTIAL DX: Top 3 most likely diagnoses based on the clinical picture, each with brief reasoning.
+- RECOMMENDED INTERVENTIONS: Any additional assessments or treatments to consider.
+- TRANSPORT PRIORITY: Emergent / Urgent / Non-urgent, with recommended facility type (trauma center, stroke center, nearest ED, etc).
+
+Be concise and evidence-based. Do not fabricate findings not supported by the PCR.`;
+
+  const messages: ChatMessage[] = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: `Patient Care Report:\n${pcrText}` },
+  ];
+
+  return generateResponse(messages, onToken);
+}
+
+/**
  * Check if LLM is ready
  */
 export function isLLMReady(): boolean {
