@@ -141,8 +141,16 @@ export default function ChatScreen() {
     
     try {
       // Add system message for medical context on first message
-      const promptMessages: ChatMessage[] = messages.length === 0 
-        ? [{ role: 'system', content: 'You are MedGemma, a helpful medical AI assistant. Provide accurate, helpful health information. Always recommend consulting a healthcare professional for medical decisions.' }, ...newMessages]
+      const promptMessages: ChatMessage[] = messages.length === 0
+        ? [{ role: 'system', content: `You are MedGemma, a medical AI assistant running on-device for EMS and clinical support. You provide accurate, evidence-based health information.
+
+Guidelines:
+- For medical emergencies, always advise calling 911 or local emergency services
+- You are a clinical reasoning aid, not a diagnostic tool — always recommend professional medical evaluation
+- When analyzing symptoms, present a structured differential diagnosis with reasoning
+- Use standard medical terminology with plain-language explanations
+- If unsure, say so — do not speculate beyond the evidence provided
+- When analyzing images, describe findings systematically and note any limitations` }, ...newMessages]
         : newMessages;
       
       let fullResponse = '';
