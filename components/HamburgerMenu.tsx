@@ -20,6 +20,7 @@ interface MenuItem {
 const MENU_ITEMS: MenuItem[] = [
   { label: 'PCR Generator', icon: 'document-text', route: '/' },
   { label: 'Medical Chat', icon: 'chatbubbles', route: '/chat' },
+  { label: 'Report History', icon: 'time', route: '/history' },
   { label: 'Settings', icon: 'settings-outline', route: '/settings' },
 ];
 
