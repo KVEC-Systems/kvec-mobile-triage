@@ -33,6 +33,9 @@ export async function savePCR(
 
   const history = await loadPCRHistory();
   history.unshift(entry);
+  if (history.length > 100) {
+    history.length = 100;
+  }
   await AsyncStorage.setItem(PCR_HISTORY_KEY, JSON.stringify(history));
   return entry;
 }

@@ -221,7 +221,7 @@ Guidelines:
     } finally {
       setIsLoading(false);
     }
-  }, [inputText, messages, isLoading]);
+  }, [inputText, messages, isLoading, selectedImage, activeVisionMode]);
 
   // Auto-scroll to bottom
   useEffect(() => {
