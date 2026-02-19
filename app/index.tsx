@@ -17,7 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAudioRecorder } from '@siteed/expo-audio-studio';
 import * as Clipboard from 'expo-clipboard';
 import { areModelsReady } from '../lib/download';
-import { initializeLLM, generatePCR, isLLMReady } from '../lib/llm';
+import { initializeLLM, generatePCR, generateTriageAssessment, isLLMReady } from '../lib/llm';
+import { initializeASR, transcribeAudio, isASRReady } from '../lib/asr';
 import { HamburgerMenu } from '../components/HamburgerMenu';
 
 type Screen = 'record' | 'transcript' | 'pcr';
@@ -124,7 +125,12 @@ export default function PCRRecorderScreen() {
   const [pcrText, setPcrText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [streamingPcr, setStreamingPcr] = useState('');
-  
+
+  // Triage assessment state
+  const [triageText, setTriageText] = useState('');
+  const [isAssessing, setIsAssessing] = useState(false);
+  const [streamingTriage, setStreamingTriage] = useState('');
+
   const insets = useSafeAreaInsets();
 
   // Check models on mount
@@ -138,7 +144,11 @@ export default function PCRRecorderScreen() {
         }
         setIsCheckingModels(false);
         setIsLoadingModels(true);
-        await initializeLLM();
+        // Initialize both ASR and LLM in parallel
+        await Promise.all([
+          initializeASR().catch(e => console.error('ASR init failed:', e)),
+          initializeLLM().catch(e => console.error('LLM init failed:', e)),
+        ]);
       } catch (error) {
         console.error('Error checking models:', error);
       } finally {
@@ -195,10 +205,24 @@ export default function PCRRecorderScreen() {
       const result = await audioRecorder.stopRecording();
       
       if (result?.fileUri) {
-        // ASR disabled - requires mel spectrogram preprocessing
-        // For now, prompt user to type their notes
-        setTranscript(`[Recording saved: ${formatTime(recordingDuration)}]\n\nType your clinical notes here. The AI will generate a PCR from this text.`);
-        setScreen('transcript');
+        if (isASRReady()) {
+          // Use Voxtral ASR for transcription
+          setIsTranscribing(true);
+          setScreen('transcript');
+          try {
+            const text = await transcribeAudio(result.fileUri);
+            setTranscript(text);
+          } catch (error) {
+            console.error('Transcription error:', error);
+            setTranscript(`[Recording saved: ${formatTime(recordingDuration)}]\n\nTranscription failed. You can type your notes manually.`);
+          } finally {
+            setIsTranscribing(false);
+          }
+        } else {
+          // ASR not ready — fallback to manual entry
+          setTranscript(`[Recording saved: ${formatTime(recordingDuration)}]\n\nASR model is loading. You can type your notes manually.`);
+          setScreen('transcript');
+        }
       }
     } catch (error) {
       console.error('Failed to stop recording:', error);
@@ -241,9 +265,35 @@ export default function PCRRecorderScreen() {
   const handleNewReport = useCallback(() => {
     setTranscript('');
     setPcrText('');
+    setTriageText('');
+    setStreamingTriage('');
     setRecordingDuration(0);
     setScreen('record');
   }, []);
+
+  // Generate triage assessment from PCR
+  const handleTriageAssessment = useCallback(async () => {
+    if (!pcrText.trim()) return;
+
+    setIsAssessing(true);
+    setStreamingTriage('');
+
+    try {
+      const { content } = parseThinkingTokens(pcrText);
+      let fullTriage = '';
+      await generateTriageAssessment(content, (token) => {
+        fullTriage += token;
+        setStreamingTriage(fullTriage);
+      });
+      setTriageText(fullTriage);
+      setStreamingTriage('');
+    } catch (error) {
+      console.error('Failed to generate triage assessment:', error);
+      Alert.alert('Error', 'Failed to generate triage assessment');
+    } finally {
+      setIsAssessing(false);
+    }
+  }, [pcrText]);
 
   // Format time helper
   const formatTime = (seconds: number): string => {
@@ -402,6 +452,28 @@ export default function PCRRecorderScreen() {
             {isGenerating && (
               <ActivityIndicator size="small" color="#6366f1" style={styles.generatingIndicator} />
             )}
+
+            {/* Triage Assessment Section */}
+            {(triageText || streamingTriage) && (
+              <View style={styles.triageSection}>
+                <Text style={styles.triageSectionTitle}>Triage Assessment</Text>
+                {(() => {
+                  const displayTriage = streamingTriage || triageText || '';
+                  const { thinking, content } = parseThinkingTokens(displayTriage);
+                  return (
+                    <>
+                      {thinking && <ThinkingBox thinking={thinking} />}
+                      <Text style={styles.pcrText}>
+                        {content || (isAssessing ? 'Analyzing...' : '')}
+                      </Text>
+                    </>
+                  );
+                })()}
+                {isAssessing && (
+                  <ActivityIndicator size="small" color="#f59e0b" style={styles.generatingIndicator} />
+                )}
+              </View>
+            )}
           </ScrollView>
           
           <View style={[styles.buttonRow, { paddingBottom: insets.bottom + 16 }]}>
@@ -413,7 +485,17 @@ export default function PCRRecorderScreen() {
               <Ionicons name="arrow-back" size={20} color="#94a3b8" />
               <Text style={styles.secondaryButtonText}>Edit</Text>
             </TouchableOpacity>
-            
+
+            {!triageText && !isAssessing && pcrText && !isGenerating && (
+              <TouchableOpacity
+                style={styles.triageButton}
+                onPress={handleTriageAssessment}
+              >
+                <Ionicons name="analytics" size={20} color="#fff" />
+                <Text style={styles.triageButtonText}>Triage</Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
               style={[styles.copyButton, isGenerating && styles.buttonDisabled]}
               onPress={handleCopy}
@@ -684,5 +766,30 @@ const styles = StyleSheet.create({
   micButtonActive: {
     backgroundColor: '#fef2f2',
     borderColor: '#ef4444',
+  },
+  triageSection: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#475569',
+  },
+  triageSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#f59e0b',
+    marginBottom: 12,
+  },
+  triageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    padding: 16,
+    backgroundColor: '#d97706',
+    borderRadius: 12,
+  },
+  triageButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
