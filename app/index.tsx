@@ -20,6 +20,7 @@ import { areModelsReady } from '../lib/download';
 import { initializeLLM, generatePCR, generateTriageAssessment, isLLMReady } from '../lib/llm';
 import { initializeASR, transcribeAudio, isASRReady } from '../lib/asr';
 import { HamburgerMenu } from '../components/HamburgerMenu';
+import { savePCR, updateTriageAssessment } from '../lib/storage';
 
 type Screen = 'record' | 'transcript' | 'pcr';
 
@@ -130,6 +131,8 @@ export default function PCRRecorderScreen() {
   const [triageText, setTriageText] = useState('');
   const [isAssessing, setIsAssessing] = useState(false);
   const [streamingTriage, setStreamingTriage] = useState('');
+
+  const savedPcrId = useRef<string | null>(null);
 
   const insets = useSafeAreaInsets();
 
@@ -244,6 +247,9 @@ export default function PCRRecorderScreen() {
         setStreamingPcr(fullPcr);
       });
       setPcrText(fullPcr);
+      // Auto-save to history
+      const saved = await savePCR(transcript, fullPcr);
+      savedPcrId.current = saved.id;
       setStreamingPcr('');
     } catch (error) {
       console.error('Failed to generate PCR:', error);
@@ -268,6 +274,7 @@ export default function PCRRecorderScreen() {
     setTriageText('');
     setStreamingTriage('');
     setRecordingDuration(0);
+    savedPcrId.current = null;
     setScreen('record');
   }, []);
 
@@ -286,6 +293,10 @@ export default function PCRRecorderScreen() {
         setStreamingTriage(fullTriage);
       });
       setTriageText(fullTriage);
+      // Update saved PCR with triage assessment
+      if (savedPcrId.current) {
+        await updateTriageAssessment(savedPcrId.current, fullTriage);
+      }
       setStreamingTriage('');
     } catch (error) {
       console.error('Failed to generate triage assessment:', error);
