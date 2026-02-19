@@ -30,6 +30,35 @@ function getMessageText(content: string | ChatMessageContent[]): string {
     .join('\n');
 }
 
+interface VisionMode {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  prompt: string;
+}
+
+const VISION_MODES: VisionMode[] = [
+  {
+    label: 'Wound',
+    icon: 'bandage',
+    prompt: 'Analyze this wound image. Describe: wound type (laceration, abrasion, puncture, burn, etc), estimated size, depth assessment, signs of infection, bleeding status, and recommended field treatment.',
+  },
+  {
+    label: 'Medication',
+    icon: 'medical',
+    prompt: 'Identify the medication(s) shown. Provide: drug name, dosage form, strength if visible, common uses, and any critical safety information (allergies, interactions).',
+  },
+  {
+    label: 'Skin',
+    icon: 'body',
+    prompt: 'Assess this skin condition. Describe: appearance (color, texture, borders, distribution), possible differential diagnoses, severity assessment, and whether urgent medical evaluation is recommended.',
+  },
+  {
+    label: 'ECG/Monitor',
+    icon: 'pulse',
+    prompt: 'Analyze this patient monitor or ECG reading. Identify: heart rate/rhythm, any visible vital signs, notable findings or abnormalities, and clinical significance.',
+  },
+];
+
 export default function ChatScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -38,6 +67,7 @@ export default function ChatScreen() {
   const [isLoadingModel, setIsLoadingModel] = useState(false);
   const [streamingText, setStreamingText] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [activeVisionMode, setActiveVisionMode] = useState<VisionMode | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
 
@@ -112,6 +142,20 @@ export default function ChatScreen() {
     );
   }, [pickFromCamera, pickFromGallery]);
 
+  // Handle vision quick-assess mode selection
+  const handleVisionMode = useCallback((mode: VisionMode) => {
+    setActiveVisionMode(mode);
+    Alert.alert(
+      mode.label + ' Assessment',
+      'Take or select a photo to analyze',
+      [
+        { text: 'Camera', onPress: pickFromCamera },
+        { text: 'Photo Library', onPress: pickFromGallery },
+        { text: 'Cancel', style: 'cancel', onPress: () => setActiveVisionMode(null) },
+      ]
+    );
+  }, [pickFromCamera, pickFromGallery]);
+
   const handleSend = useCallback(async () => {
     if (!inputText.trim() && !selectedImage) return;
     if (isLoading) return;
@@ -121,12 +165,16 @@ export default function ChatScreen() {
     if (selectedImage) {
       console.log('Selected image URI:', selectedImage);
       console.log('Vision enabled:', isVisionEnabled());
-      
-      // Always include image in message for display, even if vision not enabled
+
+      const promptText = activeVisionMode
+        ? activeVisionMode.prompt
+        : inputText.trim() || 'What do you see in this image?';
+
       messageContent = [
-        { type: 'text', text: inputText.trim() || 'What do you see in this image?' },
+        { type: 'text', text: inputText.trim() ? inputText.trim() + '\n\n' + (activeVisionMode?.prompt || '') : promptText },
         { type: 'image_url', image_url: { url: selectedImage } },
       ];
+      setActiveVisionMode(null);
     } else {
       messageContent = inputText.trim();
     }
@@ -282,6 +330,30 @@ Guidelines:
       
       {/* Input area */}
       <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
+        {/* Medical Vision Quick Assess */}
+        {isVisionEnabled() && !isLoading && messages.length === 0 && !selectedImage && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.visionModesContainer}
+            contentContainerStyle={styles.visionModesContent}
+          >
+            {VISION_MODES.map((mode) => (
+              <TouchableOpacity
+                key={mode.label}
+                style={[
+                  styles.visionModeButton,
+                  activeVisionMode?.label === mode.label && styles.visionModeButtonActive,
+                ]}
+                onPress={() => handleVisionMode(mode)}
+              >
+                <Ionicons name={mode.icon} size={18} color="#6366f1" />
+                <Text style={styles.visionModeLabel}>{mode.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
         {/* Image preview */}
         {selectedImage && (
           <View style={styles.imagePreviewContainer}>
@@ -495,5 +567,32 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#475569',
+  },
+  visionModesContainer: {
+    marginBottom: 10,
+  },
+  visionModesContent: {
+    gap: 8,
+    paddingHorizontal: 4,
+  },
+  visionModeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  visionModeButtonActive: {
+    borderColor: '#6366f1',
+    backgroundColor: '#312e81',
+  },
+  visionModeLabel: {
+    fontSize: 13,
+    color: '#e2e8f0',
+    fontWeight: '500',
   },
 });
