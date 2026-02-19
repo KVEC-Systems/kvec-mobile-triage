@@ -234,11 +234,22 @@ export async function generatePCR(
   transcript: string,
   onToken?: (token: string) => void
 ): Promise<string> {
-  const systemPrompt = `DO NOT THINK. Generate a structured Patient Care Report (PCR) from the following transcript of a first responder's verbal notes. Format the output as plain text that can be copied into an ePCR system. Be concise and use standard medical abbreviations (pt, yo, LOC, GCS, BP, HR, RR, SpO2, etc).`;
+  const systemPrompt = `You are an expert EMS documentation system. Generate a structured Patient Care Report (PCR) from the following first responder verbal notes. Use standard EMS abbreviations (pt, y/o, hx, dx, tx, LOC, GCS, BP, HR, RR, SpO2, etc).
+
+Format the report with these sections:
+- CHIEF COMPLAINT: One-line summary
+- HPI: Brief history of present illness/injury
+- VITALS: Any vitals mentioned (BP, HR, RR, SpO2, GCS, temp). Write "Not documented" for missing vitals.
+- PHYSICAL EXAM: Relevant findings
+- ASSESSMENT: Clinical impression / working diagnosis
+- INTERVENTIONS: Treatments performed on scene and in transport
+- DISPOSITION: Transport destination, patient condition at transfer
+
+Be concise. Use bullet points within sections. Do not fabricate information not present in the transcript.`;
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
-    { role: 'user', content: `Transcript:\n${transcript}` },
+    { role: 'user', content: `First responder notes:\n${transcript}` },
   ];
 
   return generateResponse(messages, onToken);
