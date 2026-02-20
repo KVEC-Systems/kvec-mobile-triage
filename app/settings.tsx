@@ -119,9 +119,9 @@ export default function SettingsScreen() {
         </View>
         
         <View style={styles.linkRow}>
-          <Ionicons name="logo-github" size={16} color="#60a5fa" />
+          <Ionicons name="logo-github" size={16} color="#2563EB" />
           <Text style={styles.linkText}>View on HuggingFace</Text>
-          <Ionicons name="open-outline" size={14} color="#60a5fa" />
+          <Ionicons name="open-outline" size={14} color="#2563EB" />
         </View>
       </TouchableOpacity>
     );
@@ -132,7 +132,7 @@ export default function SettingsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#ffffff" />
+          <Ionicons name="arrow-back" size={24} color="#1E293B" />
         </TouchableOpacity>
         <Text style={styles.title}>Settings</Text>
         <View style={styles.placeholder} />
@@ -148,7 +148,7 @@ export default function SettingsScreen() {
 
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#60a5fa" />
+              <ActivityIndicator size="large" color="#2563EB" />
               <Text style={styles.loadingText}>Checking model status...</Text>
             </View>
           ) : (
@@ -177,7 +177,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#F8FAFC',
   },
   header: {
     flexDirection: 'row',
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
+    borderBottomColor: '#FFFFFF',
   },
   backButton: {
     width: 40,
@@ -194,12 +194,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#FFFFFF',
   },
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#ffffff',
+    color: '#1E293B',
   },
   placeholder: {
     width: 40,
@@ -217,12 +217,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#ffffff',
+    color: '#1E293B',
     marginBottom: 4,
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: '#64748B',
     marginBottom: 16,
   },
   loadingContainer: {
@@ -233,17 +233,17 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#94a3b8',
+    color: '#64748B',
   },
   modelsList: {
     gap: 12,
   },
   modelCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#E2E8F0',
   },
   modelHeader: {
     marginBottom: 12,
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
   modelName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#ffffff',
+    color: '#1E293B',
     flex: 1,
   },
   statusBadge: {
@@ -286,10 +286,10 @@ const styles = StyleSheet.create({
   },
   modelDescription: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: '#64748B',
   },
   modelDetails: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#F8FAFC',
     borderRadius: 8,
     padding: 10,
     marginBottom: 12,
@@ -301,11 +301,11 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 13,
-    color: '#64748b',
+    color: '#94A3B8',
   },
   detailValue: {
     fontSize: 13,
-    color: '#e2e8f0',
+    color: '#1E293B',
     fontFamily: 'monospace',
   },
   linkRow: {
@@ -315,30 +315,30 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontSize: 14,
-    color: '#60a5fa',
+    color: '#2563EB',
     flex: 1,
   },
   infoCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#E2E8F0',
   },
   appName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#ffffff',
+    color: '#1E293B',
     marginBottom: 4,
   },
   appVersion: {
     fontSize: 14,
-    color: '#64748b',
+    color: '#94A3B8',
     marginBottom: 8,
   },
   appDescription: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: '#64748B',
     lineHeight: 20,
   },
 });

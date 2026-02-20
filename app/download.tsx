@@ -32,7 +32,7 @@ export default function DownloadScreen() {
       try {
         const status = await checkModelStatus();
         const isComplete = status.medgemma.ggufExists && 
-          status.medasr.onnxExists && status.medasr.tokensExists;
+          status.medgemma.mmprojExists && status.voxtral.ggufExists;
         
         if (isComplete) {
           setState('complete');
@@ -90,15 +90,15 @@ export default function DownloadScreen() {
         return (
           <>
             <View style={styles.iconContainer}>
-              <Ionicons name="cloud-download" size={64} color="#6366f1" />
+              <Ionicons name="cloud-download" size={64} color="#2563EB" />
             </View>
             <Text style={styles.title}>Download AI Models</Text>
             <Text style={styles.description}>
-              Download MedASR (speech-to-text) and MedGemma (AI assistant) 
+              Download Voxtral (speech-to-text) and MedGemma (AI assistant) 
               for on-device PCR generation, works completely offline.
             </Text>
             <View style={styles.sizeInfo}>
-              <Ionicons name="download-outline" size={18} color="#64748b" />
+              <Ionicons name="download-outline" size={18} color="#94A3B8" />
               <Text style={styles.sizeText}>
                 Download size: {formatBytes(downloadSize)}
               </Text>
@@ -175,7 +175,7 @@ export default function DownloadScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#F8FAFC',
   },
   content: {
     flex: 1,
@@ -189,13 +189,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#f1f5f9',
+    color: '#1E293B',
     marginBottom: 12,
     textAlign: 'center',
   },
   description: {
     fontSize: 16,
-    color: '#94a3b8',
+    color: '#64748B',
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 24,
@@ -206,18 +206,18 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 32,
     padding: 12,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#E2E8F0',
     borderRadius: 8,
   },
   sizeText: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: '#64748B',
   },
   downloadButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#6366f1',
+    backgroundColor: '#2563EB',
     paddingHorizontal: 32,
     paddingVertical: 16,
     borderRadius: 12,
@@ -235,23 +235,23 @@ const styles = StyleSheet.create({
   progressBar: {
     width: '100%',
     height: 8,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#E2E8F0',
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 8,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#6366f1',
+    backgroundColor: '#2563EB',
   },
   progressText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#6366f1',
+    color: '#2563EB',
   },
   statusText: {
     fontSize: 16,
-    color: '#94a3b8',
+    color: '#64748B',
     marginTop: 16,
   },
   errorText: {

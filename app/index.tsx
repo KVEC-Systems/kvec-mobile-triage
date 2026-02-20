@@ -56,13 +56,13 @@ function ThinkingBox({ thinking }: { thinking: string }) {
         <Ionicons 
           name="bulb-outline" 
           size={16} 
-          color="#a78bfa" 
+          color="#7C3AED"
         />
         <Text style={thinkingStyles.headerText}>Thinking</Text>
-        <Ionicons 
-          name={isExpanded ? 'chevron-up' : 'chevron-down'} 
-          size={16} 
-          color="#a78bfa" 
+        <Ionicons
+          name={isExpanded ? 'chevron-up' : 'chevron-down'}
+          size={16}
+          color="#7C3AED" 
         />
       </TouchableOpacity>
       {isExpanded && (
@@ -76,10 +76,10 @@ function ThinkingBox({ thinking }: { thinking: string }) {
 
 const thinkingStyles = StyleSheet.create({
   container: {
-    backgroundColor: '#1e1b4b',
+    backgroundColor: '#EFF6FF',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#4c1d95',
+    borderColor: '#BFDBFE',
     marginBottom: 12,
     overflow: 'hidden',
   },
@@ -93,17 +93,17 @@ const thinkingStyles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: '600',
-    color: '#a78bfa',
+    color: '#7C3AED',
   },
   content: {
     padding: 12,
     paddingTop: 0,
     borderTopWidth: 1,
-    borderTopColor: '#4c1d95',
+    borderTopColor: '#BFDBFE',
   },
   contentText: {
     fontSize: 12,
-    color: '#c4b5fd',
+    color: '#6366f1',
     lineHeight: 18,
   },
 });
@@ -317,7 +317,7 @@ export default function PCRRecorderScreen() {
   if (isCheckingModels) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color="#2563EB" />
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
@@ -329,7 +329,7 @@ export default function PCRRecorderScreen() {
       <View style={styles.header}>
         <HamburgerMenu />
         <View style={styles.headerTitleContainer}>
-          <Ionicons name="medical" size={28} color="#6366f1" />
+          <Ionicons name="medical" size={28} color="#2563EB" />
           <Text style={styles.headerTitle}>Patient Care Report</Text>
         </View>
         <View style={{ width: 44 }} />
@@ -337,7 +337,7 @@ export default function PCRRecorderScreen() {
       
       {isLoadingModels && (
         <View style={styles.modelLoadingBanner}>
-          <ActivityIndicator size="small" color="#6366f1" />
+          <ActivityIndicator size="small" color="#2563EB" />
           <Text style={styles.modelLoadingText}>Loading AI models...</Text>
         </View>
       )}
@@ -390,7 +390,7 @@ export default function PCRRecorderScreen() {
         <View style={styles.screenContent}>
           {isTranscribing ? (
             <View style={styles.transcribingContainer}>
-              <ActivityIndicator size="large" color="#6366f1" />
+              <ActivityIndicator size="large" color="#2563EB" />
               <Text style={styles.transcribingText}>Processing...</Text>
             </View>
           ) : (
@@ -410,7 +410,7 @@ export default function PCRRecorderScreen() {
                     <Ionicons 
                       name={audioRecorder.isRecording ? 'stop' : 'mic'} 
                       size={22} 
-                      color={audioRecorder.isRecording ? '#ef4444' : '#6366f1'} 
+                      color={audioRecorder.isRecording ? '#ef4444' : '#2563EB'} 
                     />
                   </TouchableOpacity>
                 </View>
@@ -419,7 +419,7 @@ export default function PCRRecorderScreen() {
               <TextInput
                 style={styles.transcriptInput}
                 placeholder="Enter your clinical notes here..."
-                placeholderTextColor="#64748b"
+                placeholderTextColor="#94A3B8"
                 value={transcript}
                 onChangeText={setTranscript}
                 multiline
@@ -461,7 +461,7 @@ export default function PCRRecorderScreen() {
               );
             })()}
             {isGenerating && (
-              <ActivityIndicator size="small" color="#6366f1" style={styles.generatingIndicator} />
+              <ActivityIndicator size="small" color="#2563EB" style={styles.generatingIndicator} />
             )}
 
             {/* Triage Assessment Section */}
@@ -493,7 +493,7 @@ export default function PCRRecorderScreen() {
               onPress={() => setScreen('transcript')}
               disabled={isGenerating}
             >
-              <Ionicons name="arrow-back" size={20} color="#94a3b8" />
+              <Ionicons name="arrow-back" size={20} color="#64748B" />
               <Text style={styles.secondaryButtonText}>Edit</Text>
             </TouchableOpacity>
 
@@ -521,7 +521,7 @@ export default function PCRRecorderScreen() {
               onPress={handleNewReport}
               disabled={isGenerating}
             >
-              <Ionicons name="add" size={20} color="#6366f1" />
+              <Ionicons name="add" size={20} color="#2563EB" />
               <Text style={styles.newButtonText}>New</Text>
             </TouchableOpacity>
           </View>
@@ -534,17 +534,17 @@ export default function PCRRecorderScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#F8FAFC',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: '#F8FAFC',
   },
   loadingText: {
     fontSize: 16,
-    color: '#94a3b8',
+    color: '#64748B',
     marginTop: 12,
   },
   header: {
@@ -552,16 +552,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#334155',
+    borderBottomColor: '#E2E8F0',
     gap: 10,
   },
   headerTitle: {
     flex: 1,
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#f1f5f9',
+    color: '#1E293B',
   },
   chatButton: {
     padding: 8,
@@ -577,11 +577,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 8,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#FFFFFF',
   },
   modelLoadingText: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#64748B',
   },
   screenContent: {
     flex: 1,
@@ -595,7 +595,7 @@ const styles = StyleSheet.create({
   durationText: {
     fontSize: 64,
     fontWeight: '200',
-    color: '#f1f5f9',
+    color: '#1E293B',
     fontVariant: ['tabular-nums'],
   },
   recordingIndicator: {
@@ -619,17 +619,17 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#6366f1',
+    backgroundColor: '#2563EB',
     justifyContent: 'center',
     alignItems: 'center',
     marginVertical: 32,
   },
   recordButtonActive: {
-    backgroundColor: '#ef4444',
+    backgroundColor: '#EF4444',
   },
   recordHint: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: '#64748B',
     textAlign: 'center',
   },
   skipButton: {
@@ -638,12 +638,12 @@ const styles = StyleSheet.create({
   },
   skipButtonText: {
     fontSize: 14,
-    color: '#6366f1',
+    color: '#2563EB',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#f1f5f9',
+    color: '#1E293B',
     marginBottom: 16,
   },
   transcribingContainer: {
@@ -653,19 +653,19 @@ const styles = StyleSheet.create({
   },
   transcribingText: {
     fontSize: 16,
-    color: '#94a3b8',
+    color: '#64748B',
     marginTop: 16,
   },
   transcriptInput: {
     flex: 1,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     fontSize: 15,
-    color: '#f1f5f9',
+    color: '#1E293B',
     lineHeight: 24,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#E2E8F0',
   },
   buttonRow: {
     flexDirection: 'row',
@@ -678,7 +678,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#6366f1',
+    backgroundColor: '#2563EB',
     padding: 16,
     borderRadius: 12,
   },
@@ -692,27 +692,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     padding: 16,
-    backgroundColor: '#334155',
+    backgroundColor: '#E2E8F0',
     borderRadius: 12,
   },
   secondaryButtonText: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: '#64748B',
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   pcrContainer: {
     flex: 1,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#E2E8F0',
   },
   pcrText: {
     fontSize: 14,
-    color: '#e2e8f0',
+    color: '#334155',
     lineHeight: 22,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
@@ -739,14 +739,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     padding: 16,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#6366f1',
+    borderColor: '#2563EB',
   },
   newButtonText: {
     fontSize: 14,
-    color: '#6366f1',
+    color: '#2563EB',
   },
   notesHeader: {
     flexDirection: 'row',
@@ -768,21 +768,21 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#6366f1',
+    borderColor: '#2563EB',
   },
   micButtonActive: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: '#FEE2E2',
     borderColor: '#ef4444',
   },
   triageSection: {
     marginTop: 20,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#475569',
+    borderTopColor: '#CBD5E1',
   },
   triageSectionTitle: {
     fontSize: 16,

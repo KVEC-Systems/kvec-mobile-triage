@@ -70,7 +70,7 @@ export default function HistoryScreen() {
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => setSelectedPCR(null)}>
-            <Ionicons name="arrow-back" size={24} color="#ffffff" />
+            <Ionicons name="arrow-back" size={24} color="#1E293B" />
           </TouchableOpacity>
           <Text style={styles.title} numberOfLines={1}>
             {getExcerpt(selectedPCR.pcrText)}
@@ -79,7 +79,7 @@ export default function HistoryScreen() {
             style={styles.backButton}
             onPress={() => handleCopy(selectedPCR.pcrText)}
           >
-            <Ionicons name="copy-outline" size={22} color="#ffffff" />
+            <Ionicons name="copy-outline" size={22} color="#1E293B" />
           </TouchableOpacity>
         </View>
 
@@ -101,7 +101,7 @@ export default function HistoryScreen() {
               <Text style={[styles.detailSectionTitle, { color: '#f59e0b' }]}>
                 Triage Assessment
               </Text>
-              <View style={[styles.detailCard, { borderColor: '#92400e' }]}>
+              <View style={[styles.detailCard, { borderColor: '#D97706' }]}>
                 <Text style={styles.detailText}>{selectedPCR.triageAssessment}</Text>
               </View>
             </>
@@ -116,7 +116,7 @@ export default function HistoryScreen() {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#ffffff" />
+          <Ionicons name="arrow-back" size={24} color="#1E293B" />
         </TouchableOpacity>
         <Text style={styles.title}>Report History</Text>
         <View style={{ width: 40 }} />
@@ -124,7 +124,7 @@ export default function HistoryScreen() {
 
       {history.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="documents-outline" size={48} color="#94a3b8" />
+          <Ionicons name="documents-outline" size={48} color="#64748B" />
           <Text style={styles.emptyTitle}>No reports yet</Text>
           <Text style={styles.emptySubtitle}>
             Generated PCRs will appear here
@@ -163,7 +163,7 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#F8FAFC',
   },
   header: {
     flexDirection: 'row',
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
+    borderBottomColor: '#FFFFFF',
   },
   backButton: {
     width: 40,
@@ -180,13 +180,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#FFFFFF',
   },
   title: {
     flex: 1,
     fontSize: 20,
     fontWeight: '600',
-    color: '#ffffff',
+    color: '#1E293B',
     textAlign: 'center',
     marginHorizontal: 8,
   },
@@ -198,12 +198,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#e2e8f0',
+    color: '#1E293B',
     marginTop: 16,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: '#64748B',
     marginTop: 4,
   },
   listContent: {
@@ -211,11 +211,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   card: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#E2E8F0',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: '#f1f5f9',
+    color: '#1E293B',
   },
   triageBadge: {
     backgroundColor: 'rgba(245, 158, 11, 0.15)',
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   },
   cardDate: {
     fontSize: 13,
-    color: '#64748b',
+    color: '#94A3B8',
     marginTop: 6,
   },
   detailScroll: {
@@ -254,26 +254,26 @@ const styles = StyleSheet.create({
   },
   detailDate: {
     fontSize: 14,
-    color: '#64748b',
+    color: '#94A3B8',
     marginBottom: 16,
   },
   detailSectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#f1f5f9',
+    color: '#1E293B',
     marginTop: 16,
     marginBottom: 8,
   },
   detailCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#E2E8F0',
   },
   detailText: {
     fontSize: 14,
-    color: '#e2e8f0',
+    color: '#1E293B',
     lineHeight: 22,
   },
 });

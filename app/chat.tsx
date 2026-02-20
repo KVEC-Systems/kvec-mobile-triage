@@ -232,7 +232,7 @@ Guidelines:
   if (isCheckingModels) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color="#2563EB" />
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
@@ -249,7 +249,7 @@ Guidelines:
           <HamburgerMenu />
           
           <View style={styles.headerContent}>
-            <Ionicons name="medical" size={28} color="#6366f1" />
+            <Ionicons name="medical" size={28} color="#2563EB" />
             <Text style={styles.headerTitle}>MedGemma</Text>
           </View>
           
@@ -268,7 +268,7 @@ Guidelines:
       >
         {messages.length === 0 && !isLoading && (
           <View style={styles.emptyState}>
-            <Ionicons name="chatbubbles-outline" size={48} color="#94a3b8" />
+            <Ionicons name="chatbubbles-outline" size={48} color="#64748B" />
             <Text style={styles.emptyTitle}>Start a conversation</Text>
             <Text style={styles.emptySubtitle}>
               Ask any health-related questions
@@ -323,7 +323,7 @@ Guidelines:
         {/* Loading indicator */}
         {isLoading && !streamingText && (
           <View style={[styles.messageBubble, styles.assistantBubble]}>
-            <ActivityIndicator size="small" color="#6366f1" />
+            <ActivityIndicator size="small" color="#2563EB" />
           </View>
         )}
       </ScrollView>
@@ -347,7 +347,7 @@ Guidelines:
                 ]}
                 onPress={() => handleVisionMode(mode)}
               >
-                <Ionicons name={mode.icon} size={18} color="#6366f1" />
+                <Ionicons name={mode.icon} size={18} color="#2563EB" />
                 <Text style={styles.visionModeLabel}>{mode.label}</Text>
               </TouchableOpacity>
             ))}
@@ -374,13 +374,13 @@ Guidelines:
             onPress={showImageOptions}
             disabled={isLoading || !isVisionEnabled()}
           >
-            <Ionicons name="image" size={24} color={isVisionEnabled() ? "#6366f1" : "#475569"} />
+            <Ionicons name="image" size={24} color={isVisionEnabled() ? "#2563EB" : "#94A3B8"} />
           </TouchableOpacity>
           
           <TextInput
             style={styles.textInput}
             placeholder={selectedImage ? "Ask about this image..." : "Type your message..."}
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor="#64748B"
             value={inputText}
             onChangeText={setInputText}
             multiline
@@ -403,25 +403,25 @@ Guidelines:
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#F8FAFC',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: '#F8FAFC',
   },
   loadingText: {
     fontSize: 16,
-    color: '#94a3b8',
+    color: '#64748B',
     marginTop: 12,
   },
   header: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#334155',
+    borderBottomColor: '#E2E8F0',
   },
   headerRow: {
     flexDirection: 'row',
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 8,
-    backgroundColor: '#334155',
+    backgroundColor: '#E2E8F0',
   },
   headerContent: {
     flexDirection: 'row',
@@ -444,11 +444,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#f1f5f9',
+    color: '#1E293B',
   },
   loadingModelText: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#64748B',
     marginTop: 4,
   },
   messagesContainer: {
@@ -467,12 +467,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#e2e8f0',
+    color: '#1E293B',
     marginTop: 16,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: '#64748B',
     marginTop: 4,
   },
   messageBubble: {
@@ -481,12 +481,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   userBubble: {
-    backgroundColor: '#6366f1',
+    backgroundColor: '#2563EB',
     alignSelf: 'flex-end',
     borderBottomRightRadius: 4,
   },
   assistantBubble: {
-    backgroundColor: '#334155',
+    backgroundColor: '#F1F5F9',
     alignSelf: 'flex-start',
     borderBottomLeftRadius: 4,
   },
@@ -499,19 +499,19 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 8,
     marginBottom: 8,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#FFFFFF',
   },
   userText: {
     color: '#fff',
   },
   assistantText: {
-    color: '#e2e8f0',
+    color: '#1E293B',
   },
   inputContainer: {
     padding: 12,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#334155',
+    borderTopColor: '#E2E8F0',
   },
   inputRow: {
     flexDirection: 'row',
@@ -527,19 +527,19 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 12,
-    backgroundColor: '#334155',
+    backgroundColor: '#E2E8F0',
   },
   removeImageButton: {
     position: 'absolute',
     top: -8,
     right: -8,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#F8FAFC',
     borderRadius: 12,
   },
   imageButton: {
     width: 44,
     height: 44,
-    backgroundColor: '#334155',
+    backgroundColor: '#F1F5F9',
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
@@ -549,24 +549,24 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    backgroundColor: '#334155',
+    backgroundColor: '#F1F5F9',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 15,
-    color: '#f1f5f9',
+    color: '#1E293B',
     maxHeight: 100,
   },
   sendButton: {
     width: 44,
     height: 44,
-    backgroundColor: '#6366f1',
+    backgroundColor: '#2563EB',
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: '#475569',
+    backgroundColor: '#CBD5E1',
   },
   visionModesContainer: {
     marginBottom: 10,
@@ -579,20 +579,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#E2E8F0',
   },
   visionModeButtonActive: {
-    borderColor: '#6366f1',
-    backgroundColor: '#312e81',
+    borderColor: '#2563EB',
+    backgroundColor: '#EFF6FF',
   },
   visionModeLabel: {
     fontSize: 13,
-    color: '#e2e8f0',
+    color: '#1E293B',
     fontWeight: '500',
   },
 });

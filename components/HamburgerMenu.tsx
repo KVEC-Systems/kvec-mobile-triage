@@ -42,7 +42,7 @@ export function HamburgerMenu() {
         style={styles.menuButton}
         onPress={() => setIsOpen(true)}
       >
-        <Ionicons name="menu" size={24} color="#94a3b8" />
+        <Ionicons name="menu" size={24} color="#64748B" />
       </TouchableOpacity>
 
       <Modal
@@ -69,7 +69,7 @@ export function HamburgerMenu() {
                   <Ionicons 
                     name={item.icon} 
                     size={22} 
-                    color={isActive ? '#6366f1' : '#94a3b8'} 
+                    color={isActive ? '#2563EB' : '#64748B'}
                   />
                   <Text style={[styles.menuLabel, isActive && styles.menuLabelActive]}>
                     {item.label}
@@ -91,24 +91,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 8,
-    backgroundColor: '#334155',
+    backgroundColor: '#F1F5F9',
   },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   menuContainer: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#FFFFFF',
     width: '70%',
     height: '100%',
     paddingHorizontal: 16,
     borderRightWidth: 1,
-    borderRightColor: '#334155',
+    borderRightColor: '#E2E8F0',
   },
   menuTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748b',
+    color: '#94A3B8',
     marginBottom: 16,
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -123,14 +123,14 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   menuItemActive: {
-    backgroundColor: '#334155',
+    backgroundColor: '#EFF6FF',
   },
   menuLabel: {
     fontSize: 16,
-    color: '#e2e8f0',
+    color: '#1E293B',
   },
   menuLabelActive: {
-    color: '#6366f1',
+    color: '#2563EB',
     fontWeight: '600',
   },
 });
