@@ -1,6 +1,6 @@
 /**
  * Model Download Service
- * Downloads MedGemma GGUF for on-device chat inference
+ * Downloads MedGemma GGUF + Voxtral GGUF for on-device inference
  */
 
 import {
@@ -35,15 +35,10 @@ const MODELS = {
     file: 'mmproj-F16.gguf',
     size: 945000000, // ~945MB (F16 for mobile compatibility)
   },
-  medasrOnnx: {
-    repo: 'csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25',
-    file: 'model.int8.onnx',
-    size: 154000000, // ~154MB
-  },
-  medasrTokens: {
-    repo: 'csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25',
-    file: 'tokens.txt',
-    size: 5000, // ~5KB
+  voxtralGguf: {
+    repo: 'andrijdavid/Voxtral-Mini-4B-Realtime-2602-GGUF',
+    file: 'Q4_0.gguf',
+    size: 2500000000, // ~2.5GB
   },
 };
 
@@ -61,11 +56,9 @@ export interface ModelStatus {
     ggufPath: string;
     mmprojPath: string;
   };
-  medasr: {
-    onnxExists: boolean;
-    tokensExists: boolean;
-    onnxPath: string;
-    tokensPath: string;
+  voxtral: {
+    ggufExists: boolean;
+    ggufPath: string;
   };
 }
 
@@ -90,15 +83,13 @@ function getDownloadUrl(modelKey: keyof typeof MODELS): string {
 export async function checkModelStatus(): Promise<ModelStatus> {
   const ggufPath = getModelPath(MODELS.medgemmaGguf.file);
   const mmprojPath = getModelPath(MODELS.medgemmaMmproj.file);
-  const onnxPath = getModelPath(MODELS.medasrOnnx.file);
-  const tokensPath = getModelPath(MODELS.medasrTokens.file);
+  const voxtralPath = getModelPath(MODELS.voxtralGguf.file);
   
   try {
-    const [ggufInfo, mmprojInfo, onnxInfo, tokensInfo] = await Promise.all([
+    const [ggufInfo, mmprojInfo, voxtralInfo] = await Promise.all([
       getInfoAsync(ggufPath),
       getInfoAsync(mmprojPath),
-      getInfoAsync(onnxPath),
-      getInfoAsync(tokensPath),
+      getInfoAsync(voxtralPath),
     ]);
     
     // Validate file sizes (must be at least 80% of expected size)
@@ -115,11 +106,9 @@ export async function checkModelStatus(): Promise<ModelStatus> {
         ggufPath,
         mmprojPath,
       },
-      medasr: {
-        onnxExists: isValidSize(onnxInfo, MODELS.medasrOnnx.size),
-        tokensExists: isValidSize(tokensInfo, MODELS.medasrTokens.size),
-        onnxPath,
-        tokensPath,
+      voxtral: {
+        ggufExists: isValidSize(voxtralInfo, MODELS.voxtralGguf.size),
+        ggufPath: voxtralPath,
       },
     };
   } catch {
@@ -130,11 +119,9 @@ export async function checkModelStatus(): Promise<ModelStatus> {
         ggufPath,
         mmprojPath,
       },
-      medasr: {
-        onnxExists: false,
-        tokensExists: false,
-        onnxPath,
-        tokensPath,
+      voxtral: {
+        ggufExists: false,
+        ggufPath: voxtralPath,
       },
     };
   }
@@ -222,18 +209,17 @@ export async function downloadMedGemmaModel(
 }
 
 /**
- * Download MedASR models (ONNX + tokens)
+ * Download Voxtral ASR model
  */
-export async function downloadMedASRModels(
+export async function downloadVoxtralModel(
   onProgress?: (progress: DownloadProgress) => void
 ): Promise<boolean> {
   try {
-    await downloadFile('medasrOnnx', onProgress);
-    await downloadFile('medasrTokens', onProgress);
-    console.log('MedASR models download complete');
+    await downloadFile('voxtralGguf', onProgress);
+    console.log('Voxtral model download complete');
     return true;
   } catch (error) {
-    console.error('Failed to download MedASR models:', error);
+    console.error('Failed to download Voxtral model:', error);
     return false;
   }
 }
@@ -245,8 +231,8 @@ export async function downloadAllModels(
   onProgress?: (progress: DownloadProgress) => void
 ): Promise<boolean> {
   try {
-    // Download MedASR first (smaller, faster feedback)
-    await downloadMedASRModels(onProgress);
+    // Download Voxtral first (ASR — needed for core workflow)
+    await downloadVoxtralModel(onProgress);
     // Then download MedGemma
     await downloadMedGemmaModel(onProgress);
     return true;
@@ -278,11 +264,8 @@ export async function getRemainingDownloadSize(): Promise<number> {
   const status = await checkModelStatus();
   let size = 0;
   
-  if (!status.medasr.onnxExists) {
-    size += MODELS.medasrOnnx.size;
-  }
-  if (!status.medasr.tokensExists) {
-    size += MODELS.medasrTokens.size;
+  if (!status.voxtral.ggufExists) {
+    size += MODELS.voxtralGguf.size;
   }
   if (!status.medgemma.ggufExists) {
     size += MODELS.medgemmaGguf.size;
@@ -309,10 +292,10 @@ export function formatBytes(bytes: number): string {
  */
 export async function areModelsReady(): Promise<boolean> {
   const status = await checkModelStatus();
-  // Note: medasr is optional (disabled for now), mmproj is optional for vision
   return (
     status.medgemma.ggufExists &&
-    status.medgemma.mmprojExists
+    status.medgemma.mmprojExists &&
+    status.voxtral.ggufExists
   );
 }
 
@@ -331,12 +314,8 @@ export function getMmprojPath(): string {
 }
 
 /**
- * Get the paths to the downloaded ASR models
+ * Get the path to the Voxtral ASR model
  */
-export function getAsrModelPaths(): { onnxPath: string; tokensPath: string } {
-  return {
-    onnxPath: `${documentDirectory}models/${MODELS.medasrOnnx.file}`,
-    tokensPath: `${documentDirectory}models/${MODELS.medasrTokens.file}`,
-  };
+export function getVoxtralModelPath(): string {
+  return `${documentDirectory}models/${MODELS.voxtralGguf.file}`;
 }
-

@@ -1,0 +1,9 @@
+{
+  "platforms": ["ios", "android"],
+  "ios": {
+    "modules": ["ExpoVoxtralModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.voxtral.ExpoVoxtralModule"]
+  }
+}

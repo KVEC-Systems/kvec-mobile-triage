@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Voxtral.cpp vendored source (keep code, ignore git metadata)
+modules/expo-voxtral/cpp/voxtral.cpp/.git
+modules/expo-voxtral/cpp/voxtral.cpp/ggml/.git
