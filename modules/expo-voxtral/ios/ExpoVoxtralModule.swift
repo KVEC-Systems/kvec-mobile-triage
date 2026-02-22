@@ -6,7 +6,7 @@ public class ExpoVoxtralModule: Module {
 
     AsyncFunction("loadModel") { (modelPath: String, threads: Int, useGpu: Bool, promise: Promise) in
       DispatchQueue.global(qos: .userInitiated).async {
-        let result = VoxtralBridge.shared.loadModel(path: modelPath, threads: Int32(threads), useGpu: useGpu)
+        let result = VoxtralBridge.shared.loadModel(withPath: modelPath, threads: Int32(threads), useGpu: useGpu)
         promise.resolve(result)
       }
     }
@@ -17,7 +17,7 @@ public class ExpoVoxtralModule: Module {
           promise.reject("ERR_NOT_LOADED", "Voxtral model is not loaded. Call loadModel() first.")
           return
         }
-        if let text = VoxtralBridge.shared.transcribe(audioPath: audioPath) {
+        if let text = VoxtralBridge.shared.transcribe(withAudioPath: audioPath) {
           promise.resolve(text)
         } else {
           promise.reject("ERR_TRANSCRIPTION", "Transcription failed.")

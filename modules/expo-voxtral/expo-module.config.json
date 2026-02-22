@@ -1,7 +1,8 @@
 {
   "platforms": ["ios", "android"],
   "ios": {
-    "modules": ["ExpoVoxtralModule"]
+    "modules": ["ExpoVoxtralModule"],
+    "podspecPath": "./ExpoVoxtral.podspec"
   },
   "android": {
     "modules": ["expo.modules.voxtral.ExpoVoxtralModule"]

@@ -1,9 +1,6 @@
 require 'json'
 
-package = JSON.parse(File.read(File.join(__dir__, '..', 'package.json')))
-
-voxtral_cpp_dir = File.join(__dir__, '..', 'cpp', 'voxtral.cpp')
-ggml_dir = File.join(voxtral_cpp_dir, 'ggml')
+package = JSON.parse(File.read(File.join(__dir__, 'package.json')))
 
 Pod::Spec.new do |s|
   s.name           = 'ExpoVoxtral'
@@ -19,6 +16,7 @@ Pod::Spec.new do |s|
   s.static_framework = true
 
   # ── Swift + ObjC++ bridge ──────────────────────────────────────────
+  # Podspec is at module root, so ios/ and cpp/ are both direct children
   s.source_files = [
     'ios/**/*.{swift,h,mm,m}',
   ]
@@ -28,10 +26,11 @@ Pod::Spec.new do |s|
     'GCC_PREPROCESSOR_DEFINITIONS' => [
       '$(inherited)',
       'GGML_USE_METAL=1',
-      'GGML_METAL_EMBED_LIBRARY=1',
       'GGML_USE_CPU=1',
       'ACCELERATE_NEW_LAPACK=1',
       'ACCELERATE_LAPACK_ILP64=1',
+      'GGML_VERSION=\"0.9.6\"',
+      'GGML_COMMIT=\"unknown\"',
     ].join(' '),
     'OTHER_CFLAGS' => '$(inherited) -Wno-shorten-64-to-32 -Wno-comma -Wno-unreachable-code -Wno-conditional-uninitialized',
     'OTHER_CPLUSPLUSFLAGS' => '$(inherited) -Wno-shorten-64-to-32 -Wno-comma -Wno-unreachable-code -Wno-conditional-uninitialized',
@@ -43,6 +42,11 @@ Pod::Spec.new do |s|
       '"$(PODS_TARGET_SRCROOT)/cpp/voxtral.cpp/ggml/src/ggml-metal"',
     ].join(' '),
   }
+
+  # Keep all C/C++ headers private so they aren't verified as public (C) headers
+  s.private_header_files = [
+    'cpp/**/*.h',
+  ]
 
   # ── Frameworks ─────────────────────────────────────────────────────
   s.frameworks = ['Metal', 'MetalKit', 'Accelerate', 'Foundation']
@@ -58,6 +62,7 @@ Pod::Spec.new do |s|
       'cpp/voxtral.cpp/src/voxtral.cpp',
       'cpp/voxtral.cpp/include/**/*.h',
     ]
+    vs.private_header_files = 'cpp/voxtral.cpp/include/**/*.h'
     vs.header_mappings_dir = 'cpp/voxtral.cpp/include'
     vs.pod_target_xcconfig = {
       'HEADER_SEARCH_PATHS' => [
@@ -86,6 +91,10 @@ Pod::Spec.new do |s|
       'cpp/voxtral.cpp/ggml/src/ggml-backend-impl.h',
       'cpp/voxtral.cpp/ggml/include/**/*.h',
     ]
+    gc.private_header_files = [
+      'cpp/voxtral.cpp/ggml/src/**/*.h',
+      'cpp/voxtral.cpp/ggml/include/**/*.h',
+    ]
     gc.pod_target_xcconfig = {
       'HEADER_SEARCH_PATHS' => [
         '"$(PODS_TARGET_SRCROOT)/cpp/voxtral.cpp/ggml/include"',
@@ -111,6 +120,7 @@ Pod::Spec.new do |s|
       'cpp/voxtral.cpp/ggml/src/ggml-cpu/arch/arm/*.{cpp,c}',
       'cpp/voxtral.cpp/ggml/src/ggml-cpu/**/*.h',
     ]
+    cpu.private_header_files = 'cpp/voxtral.cpp/ggml/src/ggml-cpu/**/*.h'
     cpu.pod_target_xcconfig = {
       'HEADER_SEARCH_PATHS' => [
         '"$(PODS_TARGET_SRCROOT)/cpp/voxtral.cpp/ggml/include"',
@@ -123,6 +133,7 @@ Pod::Spec.new do |s|
 
   # ggml Metal backend
   s.subspec 'ggml-metal' do |mtl|
+    mtl.requires_arc = false
     mtl.source_files = [
       'cpp/voxtral.cpp/ggml/src/ggml-metal/ggml-metal.cpp',
       'cpp/voxtral.cpp/ggml/src/ggml-metal/ggml-metal-common.cpp',
@@ -132,9 +143,11 @@ Pod::Spec.new do |s|
       'cpp/voxtral.cpp/ggml/src/ggml-metal/ggml-metal-context.m',
       'cpp/voxtral.cpp/ggml/src/ggml-metal/**/*.h',
     ]
+    mtl.private_header_files = 'cpp/voxtral.cpp/ggml/src/ggml-metal/**/*.h'
     mtl.resources = [
       'cpp/voxtral.cpp/ggml/src/ggml-metal/ggml-metal.metal',
     ]
+    mtl.compiler_flags = '-fno-objc-arc -Wno-error=incompatible-pointer-types'
     mtl.pod_target_xcconfig = {
       'HEADER_SEARCH_PATHS' => [
         '"$(PODS_TARGET_SRCROOT)/cpp/voxtral.cpp/ggml/include"',

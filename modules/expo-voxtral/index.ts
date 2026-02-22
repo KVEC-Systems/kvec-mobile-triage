@@ -1,1 +1,1 @@
-export { loadModel, transcribe, releaseModel, isModelLoaded } from './ExpoVoxtralModule';
+export { loadModel, transcribe, releaseModel, isModelLoaded } from './src/ExpoVoxtralModule';
