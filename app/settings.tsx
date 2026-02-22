@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { checkModelStatus, formatBytes, type ModelStatus } from '@/lib/download';
+import { checkModelStatus, formatBytes, ModelStatus } from '../lib/download';
 
 // Model metadata for display
 const MODEL_INFO = {
