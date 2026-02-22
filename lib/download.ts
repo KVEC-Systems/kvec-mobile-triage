@@ -27,8 +27,8 @@ const HF_BASE = 'https://huggingface.co';
 const MODELS = {
   medgemmaGguf: {
     repo: 'unsloth/medgemma-4b-it-GGUF',
-    file: 'medgemma-4b-it-Q4_K_M.gguf',
-    size: 2490000000, // ~2.49GB
+    file: 'medgemma-4b-it-Q3_K_S.gguf',
+    size: 1940000000, // ~1.94GB
   },
   medgemmaMmproj: {
     repo: 'unsloth/medgemma-4b-it-GGUF',
@@ -37,8 +37,8 @@ const MODELS = {
   },
   voxtralGguf: {
     repo: 'andrijdavid/Voxtral-Mini-4B-Realtime-2602-GGUF',
-    file: 'Q4_0.gguf',
-    size: 2500000000, // ~2.5GB
+    file: 'Q3_K.gguf',
+    size: 1920000000, // ~1.92GB
   },
 };
 

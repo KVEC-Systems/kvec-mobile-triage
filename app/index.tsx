@@ -17,8 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAudioRecorder } from '@siteed/expo-audio-studio';
 import * as Clipboard from 'expo-clipboard';
 import { areModelsReady } from '../lib/download';
-import { initializeLLM, generatePCR, generateTriageAssessment, isLLMReady } from '../lib/llm';
-import { initializeASR, transcribeAudio, isASRReady } from '../lib/asr';
+import { initializeLLM, generatePCR, generateTriageAssessment, isLLMReady, releaseLLM } from '../lib/llm';
+import { initializeASR, transcribeAudio, isASRReady, releaseASR } from '../lib/asr';
 import { HamburgerMenu } from '../components/HamburgerMenu';
 import { savePCR, updateTriageAssessment } from '../lib/storage';
 
@@ -136,7 +136,7 @@ export default function PCRRecorderScreen() {
 
   const insets = useSafeAreaInsets();
 
-  // Check models on mount
+  // Check models on mount (don't load them yet — load on demand to save memory)
   useEffect(() => {
     async function checkModels() {
       try {
@@ -145,13 +145,6 @@ export default function PCRRecorderScreen() {
           router.replace('/download');
           return;
         }
-        setIsCheckingModels(false);
-        setIsLoadingModels(true);
-        // Initialize both ASR and LLM in parallel
-        await Promise.all([
-          initializeASR().catch(e => console.error('ASR init failed:', e)),
-          initializeLLM().catch(e => console.error('LLM init failed:', e)),
-        ]);
       } catch (error) {
         console.error('Error checking models:', error);
       } finally {
@@ -208,23 +201,26 @@ export default function PCRRecorderScreen() {
       const result = await audioRecorder.stopRecording();
       
       if (result?.fileUri) {
-        if (isASRReady()) {
-          // Use Voxtral ASR for transcription
-          setIsTranscribing(true);
-          setScreen('transcript');
-          try {
-            const text = await transcribeAudio(result.fileUri);
-            setTranscript(text);
-          } catch (error) {
-            console.error('Transcription error:', error);
-            setTranscript(`[Recording saved: ${formatTime(recordingDuration)}]\n\nTranscription failed. You can type your notes manually.`);
-          } finally {
-            setIsTranscribing(false);
+        setIsTranscribing(true);
+        setScreen('transcript');
+        try {
+          // Release LLM to free memory before loading ASR
+          if (isLLMReady()) {
+            console.log('[PCR] Releasing LLM to free memory for ASR');
+            await releaseLLM();
           }
-        } else {
-          // ASR not ready — fallback to manual entry
-          setTranscript(`[Recording saved: ${formatTime(recordingDuration)}]\n\nASR model is loading. You can type your notes manually.`);
-          setScreen('transcript');
+          // Load ASR on demand
+          if (!isASRReady()) {
+            console.log('[PCR] Loading ASR model...');
+            await initializeASR();
+          }
+          const text = await transcribeAudio(result.fileUri);
+          setTranscript(text);
+        } catch (error) {
+          console.error('Transcription error:', error);
+          setTranscript(`[Recording saved: ${formatTime(recordingDuration)}]\n\nTranscription failed. You can type your notes manually.`);
+        } finally {
+          setIsTranscribing(false);
         }
       }
     } catch (error) {
@@ -241,6 +237,16 @@ export default function PCRRecorderScreen() {
     setScreen('pcr');
     
     try {
+      // Release ASR to free memory before loading LLM
+      if (isASRReady()) {
+        console.log('[PCR] Releasing ASR to free memory for LLM');
+        await releaseASR();
+      }
+      // Load LLM on demand
+      if (!isLLMReady()) {
+        console.log('[PCR] Loading LLM model...');
+        await initializeLLM();
+      }
       let fullPcr = '';
       await generatePCR(transcript, (token) => {
         fullPcr += token;
