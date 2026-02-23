@@ -1,6 +1,6 @@
 /**
  * Model Download Service
- * Downloads MedGemma GGUF + Voxtral GGUF for on-device inference
+ * Downloads MedGemma GGUF for on-device inference
  */
 
 import {
@@ -27,18 +27,13 @@ const HF_BASE = 'https://huggingface.co';
 const MODELS = {
   medgemmaGguf: {
     repo: 'unsloth/medgemma-4b-it-GGUF',
-    file: 'medgemma-4b-it-Q3_K_S.gguf',
-    size: 1940000000, // ~1.94GB
+    file: 'medgemma-4b-it-Q4_K_M.gguf',
+    size: 2490000000, // ~2.49GB
   },
   medgemmaMmproj: {
     repo: 'unsloth/medgemma-4b-it-GGUF',
     file: 'mmproj-F16.gguf',
     size: 945000000, // ~945MB (F16 for mobile compatibility)
-  },
-  voxtralGguf: {
-    repo: 'andrijdavid/Voxtral-Mini-4B-Realtime-2602-GGUF',
-    file: 'Q3_K.gguf',
-    size: 1920000000, // ~1.92GB
   },
 };
 
@@ -55,10 +50,6 @@ export interface ModelStatus {
     mmprojExists: boolean;
     ggufPath: string;
     mmprojPath: string;
-  };
-  voxtral: {
-    ggufExists: boolean;
-    ggufPath: string;
   };
 }
 
@@ -83,32 +74,26 @@ function getDownloadUrl(modelKey: keyof typeof MODELS): string {
 export async function checkModelStatus(): Promise<ModelStatus> {
   const ggufPath = getModelPath(MODELS.medgemmaGguf.file);
   const mmprojPath = getModelPath(MODELS.medgemmaMmproj.file);
-  const voxtralPath = getModelPath(MODELS.voxtralGguf.file);
-  
+
   try {
-    const [ggufInfo, mmprojInfo, voxtralInfo] = await Promise.all([
+    const [ggufInfo, mmprojInfo] = await Promise.all([
       getInfoAsync(ggufPath),
       getInfoAsync(mmprojPath),
-      getInfoAsync(voxtralPath),
     ]);
-    
+
     // Validate file sizes (must be at least 80% of expected size)
     const isValidSize = (info: typeof ggufInfo, expectedSize: number) => {
       if (!info.exists) return false;
       const fileSize = (info as { size?: number }).size || 0;
       return fileSize >= expectedSize * 0.8;
     };
-    
+
     return {
       medgemma: {
         ggufExists: isValidSize(ggufInfo, MODELS.medgemmaGguf.size),
         mmprojExists: isValidSize(mmprojInfo, MODELS.medgemmaMmproj.size),
         ggufPath,
         mmprojPath,
-      },
-      voxtral: {
-        ggufExists: isValidSize(voxtralInfo, MODELS.voxtralGguf.size),
-        ggufPath: voxtralPath,
       },
     };
   } catch {
@@ -118,10 +103,6 @@ export async function checkModelStatus(): Promise<ModelStatus> {
         mmprojExists: false,
         ggufPath,
         mmprojPath,
-      },
-      voxtral: {
-        ggufExists: false,
-        ggufPath: voxtralPath,
       },
     };
   }
@@ -193,33 +174,21 @@ export async function downloadMedGemmaModel(
   onProgress?: (progress: DownloadProgress) => void
 ): Promise<boolean> {
   try {
-    // Download main model
+    // Download main model (required)
     await downloadFile('medgemmaGguf', onProgress);
     console.log('MedGemma model download complete');
-    
-    // Download mmproj for vision support
-    await downloadFile('medgemmaMmproj', onProgress);
-    console.log('MedGemma mmproj download complete');
-    
+
+    // Download mmproj for vision support (optional — skip on low-RAM devices)
+    try {
+      await downloadFile('medgemmaMmproj', onProgress);
+      console.log('MedGemma mmproj download complete');
+    } catch (error) {
+      console.warn('mmproj download failed (vision will be unavailable):', error);
+    }
+
     return true;
   } catch (error) {
     console.error('Failed to download MedGemma models:', error);
-    return false;
-  }
-}
-
-/**
- * Download Voxtral ASR model
- */
-export async function downloadVoxtralModel(
-  onProgress?: (progress: DownloadProgress) => void
-): Promise<boolean> {
-  try {
-    await downloadFile('voxtralGguf', onProgress);
-    console.log('Voxtral model download complete');
-    return true;
-  } catch (error) {
-    console.error('Failed to download Voxtral model:', error);
     return false;
   }
 }
@@ -231,9 +200,6 @@ export async function downloadAllModels(
   onProgress?: (progress: DownloadProgress) => void
 ): Promise<boolean> {
   try {
-    // Download Voxtral first (ASR — needed for core workflow)
-    await downloadVoxtralModel(onProgress);
-    // Then download MedGemma
     await downloadMedGemmaModel(onProgress);
     return true;
   } catch (error) {
@@ -263,10 +229,7 @@ export async function pauseDownload(): Promise<void> {
 export async function getRemainingDownloadSize(): Promise<number> {
   const status = await checkModelStatus();
   let size = 0;
-  
-  if (!status.voxtral.ggufExists) {
-    size += MODELS.voxtralGguf.size;
-  }
+
   if (!status.medgemma.ggufExists) {
     size += MODELS.medgemmaGguf.size;
   }
@@ -292,11 +255,8 @@ export function formatBytes(bytes: number): string {
  */
 export async function areModelsReady(): Promise<boolean> {
   const status = await checkModelStatus();
-  return (
-    status.medgemma.ggufExists &&
-    status.medgemma.mmprojExists &&
-    status.voxtral.ggufExists
-  );
+  // Only the GGUF model is required; mmproj (vision) is optional
+  return status.medgemma.ggufExists;
 }
 
 /**
@@ -313,9 +273,3 @@ export function getMmprojPath(): string {
   return `${documentDirectory}models/${MODELS.medgemmaMmproj.file}`;
 }
 
-/**
- * Get the path to the Voxtral ASR model
- */
-export function getVoxtralModelPath(): string {
-  return `${documentDirectory}models/${MODELS.voxtralGguf.file}`;
-}

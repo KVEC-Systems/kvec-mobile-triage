@@ -34,13 +34,6 @@ const MODEL_INFO = {
     repo: 'unsloth/medgemma-4b-it-GGUF',
     size: 945000000,
   },
-  voxtralGguf: {
-    name: 'Voxtral Mini 4B',
-    description: 'Speech-to-text for clinical note dictation',
-    file: 'Q4_0.gguf',
-    repo: 'andrijdavid/Voxtral-Mini-4B-Realtime-2602-GGUF',
-    size: 2500000000,
-  },
 };
 
 const HF_BASE = 'https://huggingface.co';
@@ -73,8 +66,6 @@ export default function SettingsScreen() {
         return modelStatus.medgemma.ggufExists;
       case 'medgemmaMmproj':
         return modelStatus.medgemma.mmprojExists;
-      case 'voxtralGguf':
-        return modelStatus.voxtral.ggufExists;
       default:
         return false;
     }

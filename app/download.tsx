@@ -32,8 +32,8 @@ export default function DownloadScreen() {
     async function check() {
       try {
         const status = await checkModelStatus();
-        const isComplete = status.medgemma.ggufExists && 
-          status.medgemma.mmprojExists && status.voxtral.ggufExists;
+        // Only GGUF is required; mmproj (vision) is optional
+        const isComplete = status.medgemma.ggufExists;
         
         if (isComplete) {
           setState('complete');
@@ -95,8 +95,8 @@ export default function DownloadScreen() {
             </View>
             <Text style={styles.title}>Download AI Models</Text>
             <Text style={styles.description}>
-              Download Voxtral (speech-to-text) and MedGemma (AI assistant) 
-              for on-device PCR generation, works completely offline.
+              Download MedGemma (AI assistant) for on-device PCR generation
+              and medical chat, works completely offline.
             </Text>
             <View style={styles.sizeInfo}>
               <Ionicons name="download-outline" size={18} color="#94A3B8" />

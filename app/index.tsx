@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,19 +10,20 @@ import {
   Alert,
   Platform,
   LayoutAnimation,
+  KeyboardAvoidingView,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAudioRecorder } from '@siteed/expo-audio-studio';
 import * as Clipboard from 'expo-clipboard';
 import { areModelsReady } from '../lib/download';
-import { initializeLLM, generatePCR, generateTriageAssessment, isLLMReady, releaseLLM } from '../lib/llm';
-import { initializeASR, transcribeAudio, isASRReady, releaseASR } from '../lib/asr';
+import { initializeLLM, generatePCR, generateTriageAssessment, isLLMReady } from '../lib/llm';
 import { HamburgerMenu } from '../components/HamburgerMenu';
 import { savePCR, updateTriageAssessment } from '../lib/storage';
 
-type Screen = 'record' | 'transcript' | 'pcr';
+type Screen = 'transcript' | 'pcr';
 
 // Parse thinking tokens from LLM output
 function parseThinkingTokens(text: string): { thinking: string | null; content: string } {
@@ -108,19 +109,110 @@ const thinkingStyles = StyleSheet.create({
   },
 });
 
+// PCR section icons
+const PCR_SECTION_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  'CHIEF COMPLAINT': 'alert-circle',
+  'HPI': 'document-text',
+  'VITALS': 'pulse',
+  'PHYSICAL EXAM': 'body',
+  'ASSESSMENT': 'medkit',
+  'INTERVENTIONS': 'bandage',
+  'DISPOSITION': 'car',
+};
+
+// Triage section icons
+const TRIAGE_SECTION_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  'ACUITY': 'warning',
+  'DIFFERENTIAL DX': 'list',
+  'RECOMMENDED INTERVENTIONS': 'bandage',
+  'TRANSPORT PRIORITY': 'car',
+};
+
+interface ParsedSection {
+  title: string;
+  content: string;
+}
+
+// Parse structured LLM output into sections
+function parseSections(text: string, sectionNames: string[]): ParsedSection[] | null {
+  const sections: ParsedSection[] = [];
+  // Build regex: match any section name at start of line followed by colon
+  const pattern = new RegExp(
+    `^(${sectionNames.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\s*:`,
+    'gm'
+  );
+
+  const matches = [...text.matchAll(pattern)];
+  if (matches.length < 2) return null; // Not enough sections to parse
+
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i];
+    const title = match[1];
+    const contentStart = match.index! + match[0].length;
+    const contentEnd = i + 1 < matches.length ? matches[i + 1].index! : text.length;
+    const content = text.substring(contentStart, contentEnd).trim();
+    sections.push({ title, content });
+  }
+
+  return sections;
+}
+
+// Section Card component
+function SectionCard({ section, icons, accentColor = '#2563EB' }: {
+  section: ParsedSection;
+  icons: Record<string, keyof typeof Ionicons.glyphMap>;
+  accentColor?: string;
+}) {
+  const icon = icons[section.title] || 'information-circle';
+  return (
+    <View style={sectionStyles.card}>
+      <View style={[sectionStyles.cardHeader, { backgroundColor: accentColor + '12' }]}>
+        <Ionicons name={icon} size={14} color={accentColor} />
+        <Text style={[sectionStyles.cardTitle, { color: accentColor }]}>{section.title}</Text>
+      </View>
+      <Text style={sectionStyles.cardContent}>{section.content}</Text>
+    </View>
+  );
+}
+
+const sectionStyles = StyleSheet.create({
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  cardTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  cardContent: {
+    fontSize: 14,
+    color: '#334155',
+    lineHeight: 20,
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    paddingTop: 4,
+  },
+});
+
 export default function PCRRecorderScreen() {
-  const [screen, setScreen] = useState<Screen>('transcript'); // Start with notes input
+  const [screen, setScreen] = useState<Screen>('transcript');
   const [isCheckingModels, setIsCheckingModels] = useState(true);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
-  
-  // Recording state - using expo-audio-studio
-  const audioRecorder = useAudioRecorder();
-  const [recordingDuration, setRecordingDuration] = useState(0);
-  const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  
+
   // Transcript state
   const [transcript, setTranscript] = useState('');
-  const [isTranscribing, setIsTranscribing] = useState(false);
   
   // PCR state
   const [pcrText, setPcrText] = useState('');
@@ -136,17 +228,20 @@ export default function PCRRecorderScreen() {
 
   const insets = useSafeAreaInsets();
 
-  // Check models on mount (don't load them yet — load on demand to save memory)
+  // Check models on mount — load LLM on demand when user taps Generate
   useEffect(() => {
     async function checkModels() {
       try {
+        console.log('[PCR] Checking model files...');
         const available = await areModelsReady();
         if (!available) {
+          console.log('[PCR] Models not downloaded, redirecting to download screen');
           router.replace('/download');
           return;
         }
+        console.log('[PCR] Models available, ready for on-demand loading');
       } catch (error) {
-        console.error('Error checking models:', error);
+        console.error('[PCR] Error during startup:', error);
       } finally {
         setIsCheckingModels(false);
         setIsLoadingModels(false);
@@ -154,79 +249,6 @@ export default function PCRRecorderScreen() {
     }
     checkModels();
   }, []);
-
-  // Recording functions using expo-audio-studio
-  const startRecording = useCallback(async () => {
-    try {
-      // Request permission using expo-audio-studio
-      const { ExpoAudioStreamModule } = await import('@siteed/expo-audio-studio');
-      const { granted } = await ExpoAudioStreamModule.requestPermissionsAsync();
-      
-      if (!granted) {
-        Alert.alert('Permission Denied', 'Microphone permission is required to record audio.');
-        return;
-      }
-      
-      // Start recording with 16kHz mono PCM for ASR
-      // Disable notification/keepAwake to avoid foreground service issues
-      await audioRecorder.startRecording({
-        sampleRate: 16000,
-        channels: 1,
-        encoding: 'pcm_16bit',
-        showNotification: false,
-        keepAwake: false,
-      });
-      
-      setRecordingDuration(0);
-      
-      // Start timer
-      recordingTimer.current = setInterval(() => {
-        setRecordingDuration(d => d + 1);
-      }, 1000);
-    } catch (error) {
-      console.error('Failed to start recording:', error);
-      Alert.alert('Error', 'Failed to start recording');
-    }
-  }, [audioRecorder]);
-
-  const stopRecording = useCallback(async () => {
-    if (!audioRecorder.isRecording) return;
-    
-    try {
-      if (recordingTimer.current) {
-        clearInterval(recordingTimer.current);
-        recordingTimer.current = null;
-      }
-      
-      const result = await audioRecorder.stopRecording();
-      
-      if (result?.fileUri) {
-        setIsTranscribing(true);
-        setScreen('transcript');
-        try {
-          // Release LLM to free memory before loading ASR
-          if (isLLMReady()) {
-            console.log('[PCR] Releasing LLM to free memory for ASR');
-            await releaseLLM();
-          }
-          // Load ASR on demand
-          if (!isASRReady()) {
-            console.log('[PCR] Loading ASR model...');
-            await initializeASR();
-          }
-          const text = await transcribeAudio(result.fileUri);
-          setTranscript(text);
-        } catch (error) {
-          console.error('Transcription error:', error);
-          setTranscript(`[Recording saved: ${formatTime(recordingDuration)}]\n\nTranscription failed. You can type your notes manually.`);
-        } finally {
-          setIsTranscribing(false);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to stop recording:', error);
-    }
-  }, [audioRecorder, recordingDuration]);
 
   // Generate PCR
   const handleGeneratePCR = useCallback(async () => {
@@ -237,29 +259,32 @@ export default function PCRRecorderScreen() {
     setScreen('pcr');
     
     try {
-      // Release ASR to free memory before loading LLM
-      if (isASRReady()) {
-        console.log('[PCR] Releasing ASR to free memory for LLM');
-        await releaseASR();
-      }
-      // Load LLM on demand
+      // Load LLM on demand (text-only, no vision needed for PCR)
       if (!isLLMReady()) {
-        console.log('[PCR] Loading LLM model...');
-        await initializeLLM();
+        console.log('[PCR] Loading LLM model (text-only)...');
+        const success = await initializeLLM(false);
+        console.log('[PCR] LLM load result:', success);
+        if (!success) {
+          throw new Error('Failed to load LLM model');
+        }
+      } else {
+        console.log('[PCR] LLM already loaded, reusing');
       }
+      console.log('[PCR] Starting generation, transcript length:', transcript.length);
       let fullPcr = '';
       await generatePCR(transcript, (token) => {
         fullPcr += token;
         setStreamingPcr(fullPcr);
       });
+      console.log('[PCR] Generation complete, length:', fullPcr.length);
       setPcrText(fullPcr);
       // Auto-save to history
       const saved = await savePCR(transcript, fullPcr);
       savedPcrId.current = saved.id;
       setStreamingPcr('');
     } catch (error) {
-      console.error('Failed to generate PCR:', error);
-      Alert.alert('Error', 'Failed to generate PCR');
+      console.error('[PCR] Failed to generate:', error);
+      Alert.alert('Error', `Failed to generate PCR: ${error}`);
       setScreen('transcript');
     } finally {
       setIsGenerating(false);
@@ -279,9 +304,8 @@ export default function PCRRecorderScreen() {
     setPcrText('');
     setTriageText('');
     setStreamingTriage('');
-    setRecordingDuration(0);
     savedPcrId.current = null;
-    setScreen('record');
+    setScreen('transcript');
   }, []);
 
   // Generate triage assessment from PCR
@@ -312,13 +336,6 @@ export default function PCRRecorderScreen() {
     }
   }, [pcrText]);
 
-  // Format time helper
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   // Loading state
   if (isCheckingModels) {
     return (
@@ -348,80 +365,17 @@ export default function PCRRecorderScreen() {
         </View>
       )}
 
-      {/* Record Screen */}
-      {screen === 'record' && (
-        <View style={styles.screenContent}>
-          <View style={styles.recordingArea}>
-            <Text style={styles.durationText}>{formatTime(recordingDuration)}</Text>
-            
-            {audioRecorder.isRecording && (
-              <View style={styles.recordingIndicator}>
-                <View style={styles.recordingDot} />
-                <Text style={styles.recordingLabel}>Recording...</Text>
-              </View>
-            )}
-            
-            <TouchableOpacity
-              style={[styles.recordButton, audioRecorder.isRecording && styles.recordButtonActive]}
-              onPress={audioRecorder.isRecording ? stopRecording : startRecording}
-            >
-              <Ionicons 
-                name={audioRecorder.isRecording ? 'stop' : 'mic'} 
-                size={48} 
-                color="#fff" 
-              />
-            </TouchableOpacity>
-            
-            <Text style={styles.recordHint}>
-              {audioRecorder.isRecording 
-                ? 'Tap to stop recording' 
-                : 'Tap to start recording your notes'}
-            </Text>
-          </View>
-          
-          <TouchableOpacity
-            style={styles.skipButton}
-            onPress={() => {
-              setTranscript('');
-              setScreen('transcript');
-            }}
-          >
-            <Text style={styles.skipButtonText}>Or type notes manually</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Clinical Notes Screen (Main) */}
+      {/* Clinical Notes Screen */}
       {screen === 'transcript' && (
-        <View style={styles.screenContent}>
-          {isTranscribing ? (
-            <View style={styles.transcribingContainer}>
-              <ActivityIndicator size="large" color="#2563EB" />
-              <Text style={styles.transcribingText}>Processing...</Text>
-            </View>
-          ) : (
-            <>
-              <View style={styles.notesHeader}>
-                <Text style={styles.sectionTitle}>Clinical Notes</Text>
-                
-                {/* Inline Recording Controls */}
-                <View style={styles.micContainer}>
-                  {audioRecorder.isRecording && (
-                    <Text style={styles.micDuration}>{formatTime(recordingDuration)}</Text>
-                  )}
-                  <TouchableOpacity
-                    style={[styles.micButton, audioRecorder.isRecording && styles.micButtonActive]}
-                    onPress={audioRecorder.isRecording ? stopRecording : startRecording}
-                  >
-                    <Ionicons 
-                      name={audioRecorder.isRecording ? 'stop' : 'mic'} 
-                      size={22} 
-                      color={audioRecorder.isRecording ? '#ef4444' : '#2563EB'} 
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
-              
+        <KeyboardAvoidingView
+          style={styles.screenContent}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={insets.top}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sectionTitle}>Clinical Notes</Text>
+
               <TextInput
                 style={styles.transcriptInput}
                 placeholder="Enter your clinical notes here..."
@@ -431,20 +385,20 @@ export default function PCRRecorderScreen() {
                 multiline
                 textAlignVertical="top"
               />
-              
+
               <View style={[styles.buttonRow, { paddingBottom: insets.bottom + 16 }]}>
                 <TouchableOpacity
                   style={[styles.primaryButton, !transcript.trim() && styles.buttonDisabled]}
                   onPress={handleGeneratePCR}
-                  disabled={!transcript.trim() || !isLLMReady()}
+                  disabled={!transcript.trim()}
                 >
                   <Text style={styles.primaryButtonText}>Generate PCR</Text>
                   <Ionicons name="arrow-forward" size={20} color="#fff" />
                 </TouchableOpacity>
               </View>
-            </>
-          )}
-        </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       )}
 
       {/* PCR Output Screen */}
@@ -456,13 +410,22 @@ export default function PCRRecorderScreen() {
             {(() => {
               const displayText = streamingPcr || pcrText || '';
               const { thinking, content } = parseThinkingTokens(displayText);
-              
+              const pcrSectionNames = Object.keys(PCR_SECTION_ICONS);
+              // Parse into cards when generation is done, fall back to plain text while streaming
+              const sections = !isGenerating && content ? parseSections(content, pcrSectionNames) : null;
+
               return (
                 <>
                   {thinking && <ThinkingBox thinking={thinking} />}
-                  <Text style={styles.pcrText}>
-                    {content || (isGenerating ? 'Generating...' : '')}
-                  </Text>
+                  {sections ? (
+                    sections.map((section, idx) => (
+                      <SectionCard key={idx} section={section} icons={PCR_SECTION_ICONS} />
+                    ))
+                  ) : (
+                    <Text style={styles.pcrText}>
+                      {content || (isGenerating ? 'Generating...' : '')}
+                    </Text>
+                  )}
                 </>
               );
             })()}
@@ -477,12 +440,20 @@ export default function PCRRecorderScreen() {
                 {(() => {
                   const displayTriage = streamingTriage || triageText || '';
                   const { thinking, content } = parseThinkingTokens(displayTriage);
+                  const triageSectionNames = Object.keys(TRIAGE_SECTION_ICONS);
+                  const sections = !isAssessing && content ? parseSections(content, triageSectionNames) : null;
                   return (
                     <>
                       {thinking && <ThinkingBox thinking={thinking} />}
-                      <Text style={styles.pcrText}>
-                        {content || (isAssessing ? 'Analyzing...' : '')}
-                      </Text>
+                      {sections ? (
+                        sections.map((section, idx) => (
+                          <SectionCard key={idx} section={section} icons={TRIAGE_SECTION_ICONS} accentColor="#d97706" />
+                        ))
+                      ) : (
+                        <Text style={styles.pcrText}>
+                          {content || (isAssessing ? 'Analyzing...' : '')}
+                        </Text>
+                      )}
                     </>
                   );
                 })()}
@@ -495,40 +466,40 @@ export default function PCRRecorderScreen() {
           
           <View style={[styles.buttonRow, { paddingBottom: insets.bottom + 16 }]}>
             <TouchableOpacity
-              style={styles.secondaryButton}
+              style={[styles.pcrButton, styles.pcrButtonSecondary]}
               onPress={() => setScreen('transcript')}
               disabled={isGenerating}
             >
-              <Ionicons name="arrow-back" size={20} color="#64748B" />
-              <Text style={styles.secondaryButtonText}>Edit</Text>
+              <Ionicons name="create-outline" size={18} color="#64748B" />
+              <Text style={styles.pcrButtonSecondaryText}>Edit</Text>
             </TouchableOpacity>
 
             {!triageText && !isAssessing && pcrText && !isGenerating && (
               <TouchableOpacity
-                style={styles.triageButton}
+                style={[styles.pcrButton, styles.pcrButtonTriage]}
                 onPress={handleTriageAssessment}
               >
-                <Ionicons name="analytics" size={20} color="#fff" />
-                <Text style={styles.triageButtonText}>Triage</Text>
+                <Ionicons name="analytics" size={18} color="#fff" />
+                <Text style={styles.pcrButtonTriageText}>Triage</Text>
               </TouchableOpacity>
             )}
 
             <TouchableOpacity
-              style={[styles.copyButton, isGenerating && styles.buttonDisabled]}
+              style={[styles.pcrButton, styles.pcrButtonCopy, isGenerating && styles.buttonDisabled]}
               onPress={handleCopy}
               disabled={isGenerating || !pcrText}
             >
-              <Ionicons name="copy-outline" size={20} color="#fff" />
-              <Text style={styles.copyButtonText}>Copy</Text>
+              <Ionicons name="copy-outline" size={18} color="#fff" />
+              <Text style={styles.pcrButtonCopyText}>Copy</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
-              style={styles.newButton}
+              style={[styles.pcrButton, styles.pcrButtonNew]}
               onPress={handleNewReport}
               disabled={isGenerating}
             >
-              <Ionicons name="add" size={20} color="#2563EB" />
-              <Text style={styles.newButtonText}>New</Text>
+              <Ionicons name="add" size={18} color="#2563EB" />
+              <Text style={styles.pcrButtonNewText}>New</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -593,74 +564,11 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  recordingArea: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  durationText: {
-    fontSize: 64,
-    fontWeight: '200',
-    color: '#1E293B',
-    fontVariant: ['tabular-nums'],
-  },
-  recordingIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 16,
-    marginBottom: 32,
-  },
-  recordingDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#ef4444',
-  },
-  recordingLabel: {
-    fontSize: 16,
-    color: '#ef4444',
-  },
-  recordButton: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#2563EB',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 32,
-  },
-  recordButtonActive: {
-    backgroundColor: '#EF4444',
-  },
-  recordHint: {
-    fontSize: 14,
-    color: '#64748B',
-    textAlign: 'center',
-  },
-  skipButton: {
-    alignItems: 'center',
-    padding: 16,
-  },
-  skipButtonText: {
-    fontSize: 14,
-    color: '#2563EB',
-  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#1E293B',
     marginBottom: 16,
-  },
-  transcribingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  transcribingText: {
-    fontSize: 16,
-    color: '#64748B',
-    marginTop: 16,
   },
   transcriptInput: {
     flex: 1,
@@ -693,17 +601,49 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
-  secondaryButton: {
+  pcrButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    padding: 16,
-    backgroundColor: '#E2E8F0',
+    paddingVertical: 14,
+    paddingHorizontal: 8,
     borderRadius: 12,
   },
-  secondaryButtonText: {
+  pcrButtonSecondary: {
+    backgroundColor: '#E2E8F0',
+  },
+  pcrButtonSecondaryText: {
     fontSize: 14,
+    fontWeight: '600',
     color: '#64748B',
+  },
+  pcrButtonTriage: {
+    backgroundColor: '#d97706',
+  },
+  pcrButtonTriageText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  pcrButtonCopy: {
+    backgroundColor: '#059669',
+  },
+  pcrButtonCopyText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  pcrButtonNew: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#2563EB',
+  },
+  pcrButtonNewText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2563EB',
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -725,65 +665,6 @@ const styles = StyleSheet.create({
   generatingIndicator: {
     marginTop: 16,
   },
-  copyButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#059669',
-    padding: 16,
-    borderRadius: 12,
-  },
-  copyButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  newButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#2563EB',
-  },
-  newButtonText: {
-    fontSize: 14,
-    color: '#2563EB',
-  },
-  notesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  micContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  micDuration: {
-    fontSize: 14,
-    color: '#ef4444',
-    fontWeight: '600',
-  },
-  micButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#2563EB',
-  },
-  micButtonActive: {
-    backgroundColor: '#FEE2E2',
-    borderColor: '#ef4444',
-  },
   triageSection: {
     marginTop: 20,
     paddingTop: 16,
@@ -795,18 +676,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#f59e0b',
     marginBottom: 12,
-  },
-  triageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    padding: 16,
-    backgroundColor: '#d97706',
-    borderRadius: 12,
-  },
-  triageButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
   },
 });

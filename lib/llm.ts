@@ -4,12 +4,14 @@
  */
 
 import { initLlama, type LlamaContext } from 'llama.rn';
+import * as Device from 'expo-device';
 import { getGgufModelPath, getMmprojPath } from './download';
 
 // LLM context singleton
 let llamaContext: LlamaContext | null = null;
 let isInitializing = false;
 let isMultimodalEnabled = false;
+let wasLoadedWithVision = false;
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -23,69 +25,119 @@ export type ChatMessageContent =
 
 /**
  * Initialize the LLM with the downloaded GGUF model
+ * @param enableVision Whether to load the mmproj vision projector (~945MB). Default false.
  */
-export async function initializeLLM(): Promise<boolean> {
+export async function initializeLLM(enableVision = false): Promise<boolean> {
   if (llamaContext) {
-    console.log('LLM already initialized');
-    return true;
+    // If vision is requested but context was loaded without it, must reinitialize
+    // because ctx_shift must be false for multimodal
+    if (enableVision && !wasLoadedWithVision) {
+      console.log('[LLM] Reinitializing with vision support (ctx_shift needs to change)...');
+      await releaseLLM();
+      // Fall through to fresh initialization below
+    } else if (enableVision && !isMultimodalEnabled) {
+      // Context was loaded with vision settings but mmproj failed — try again
+      console.log('[LLM] Retrying mmproj load...');
+      try {
+        const mmprojPath = getMmprojPath();
+        const { getInfoAsync } = await import('expo-file-system/legacy');
+        const fileInfo = await getInfoAsync(mmprojPath);
+
+        if (fileInfo.exists) {
+          const mmStart = Date.now();
+          const success = await llamaContext.initMultimodal({
+            path: mmprojPath,
+            use_gpu: true,
+          });
+
+          if (success) {
+            isMultimodalEnabled = true;
+            const support = await llamaContext.getMultimodalSupport();
+            console.log(`[LLM] Multimodal loaded in ${Date.now() - mmStart}ms - Vision:`, support?.vision, 'Audio:', support?.audio);
+          } else {
+            console.log('[LLM] Multimodal init returned false');
+          }
+        } else {
+          console.warn('[LLM] mmproj file not found at:', mmprojPath);
+        }
+      } catch (mmError) {
+        console.warn('[LLM] Failed to load mmproj:', mmError);
+      }
+      return true;
+    } else {
+      console.log('[LLM] Already initialized, vision:', isMultimodalEnabled);
+      return true;
+    }
   }
-  
+
   if (isInitializing) {
-    console.log('LLM initialization already in progress');
+    console.log('[LLM] Initialization already in progress');
     return false;
   }
-  
+
   isInitializing = true;
-  
+
   try {
     const modelPath = getGgufModelPath();
-    console.log('Initializing LLM from:', modelPath);
-    
+    console.log('[LLM] Loading model from:', modelPath);
+    console.log('[LLM] Vision enabled:', enableVision);
+
+    const gpuLayers = Device.isDevice ? 99 : 0;
+    console.log('[LLM] Device:', !Device.isDevice ? 'Simulator' : 'Physical', '| GPU layers:', gpuLayers);
+
+    const startTime = Date.now();
+    console.log('[LLM] Calling initLlama...');
     llamaContext = await initLlama({
       model: modelPath,
       n_ctx: 2048,      // Context size
       n_batch: 512,     // Batch size for prompt processing
       n_threads: 4,     // Number of threads
-      n_gpu_layers: 99, // Offload layers to GPU (Metal on iOS, OpenCL on Android)
-      ctx_shift: false, // Required for multimodal - disable context shifting
+      n_gpu_layers: gpuLayers, // GPU via Metal on device, CPU-only on simulator
+      ctx_shift: !enableVision, // Disable context shifting only when multimodal is needed
     });
-    
-    console.log('LLM initialized successfully');
-    
-    // Initialize multimodal support with mmproj
-    try {
-      const mmprojPath = getMmprojPath();
-      console.log('Initializing multimodal from:', mmprojPath);
-      
-      // Check if file exists and log size
-      const { getInfoAsync } = await import('expo-file-system/legacy');
-      const fileInfo = await getInfoAsync(mmprojPath);
-      console.log('mmproj file info:', JSON.stringify(fileInfo));
-      
-      if (!fileInfo.exists) {
-        console.warn('mmproj file does not exist at path');
-      } else {
-        const success = await llamaContext.initMultimodal({
-          path: mmprojPath,
-          use_gpu: true,
-        });
-        
-        if (success) {
-          isMultimodalEnabled = true;
-          const support = await llamaContext.getMultimodalSupport();
-          console.log('Multimodal enabled - Vision:', support?.vision, 'Audio:', support?.audio);
+
+    wasLoadedWithVision = enableVision;
+    console.log(`[LLM] Model loaded in ${Date.now() - startTime}ms`);
+
+    // Only load mmproj if vision is requested (saves ~945MB of memory)
+    if (enableVision) {
+      try {
+        const mmprojPath = getMmprojPath();
+        console.log('[LLM] Loading mmproj from:', mmprojPath);
+
+        const { getInfoAsync } = await import('expo-file-system/legacy');
+        const fileInfo = await getInfoAsync(mmprojPath);
+        console.log('[LLM] mmproj file info:', JSON.stringify(fileInfo));
+
+        if (!fileInfo.exists) {
+          console.warn('[LLM] mmproj file does not exist at path');
         } else {
-          console.log('Multimodal initialization returned false - mmproj may be incompatible with model');
+          const mmStart = Date.now();
+          const success = await llamaContext.initMultimodal({
+            path: mmprojPath,
+            use_gpu: true,
+          });
+
+          if (success) {
+            isMultimodalEnabled = true;
+            const support = await llamaContext.getMultimodalSupport();
+            console.log(`[LLM] Multimodal loaded in ${Date.now() - mmStart}ms - Vision:`, support?.vision, 'Audio:', support?.audio);
+          } else {
+            console.log('[LLM] Multimodal init returned false');
+          }
         }
+      } catch (mmError) {
+        console.warn('[LLM] Multimodal init failed:', mmError);
       }
-    } catch (mmError) {
-      console.warn('Multimodal init failed (vision disabled):', mmError);
+    } else {
+      console.log('[LLM] Skipping mmproj (text-only mode)');
     }
-    
+
     isInitializing = false;
+    console.log('[LLM] Ready. Total init time:', Date.now() - startTime, 'ms');
     return true;
   } catch (error) {
-    console.error('Failed to initialize LLM:', error);
+    console.error('[LLM] Failed to initialize:', error);
     isInitializing = false;
     return false;
   }
@@ -112,19 +164,21 @@ export async function generateResponse(
     throw new Error('LLM not initialized. Call initializeLLM() first.');
   }
   
-  // Extract image URL from messages if present
+  // Extract image URL from the LAST user message (not older messages)
   let imageUrl: string | undefined;
-  for (const msg of messages) {
-    if (Array.isArray(msg.content)) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role === 'user' && Array.isArray(msg.content)) {
       const imageContent = msg.content.find(
-        (item): item is { type: 'image_url'; image_url: { url: string } } => 
+        (item): item is { type: 'image_url'; image_url: { url: string } } =>
           item.type === 'image_url'
       );
       if (imageContent) {
         imageUrl = imageContent.image_url.url;
-        break;
       }
+      break; // Only check the last user message
     }
+    if (msg.role === 'user') break; // Last user message was text-only
   }
   
   // Format messages for Gemma chat template
@@ -133,14 +187,16 @@ export async function generateResponse(
   let response = '';
   
   // If we have an image and multimodal is enabled, use vision completion
+  console.log('[LLM] Image URL:', imageUrl, 'Multimodal enabled:', isMultimodalEnabled);
   if (imageUrl && isMultimodalEnabled) {
-    console.log('Using multimodal completion with image:', imageUrl);
-    
     // Get the file path - imageUrl from expo-image-picker is a file:// URI
-    const imagePath = imageUrl.startsWith('file://') 
-      ? imageUrl.replace('file://', '') 
+    const imagePath = imageUrl.startsWith('file://')
+      ? imageUrl.replace('file://', '')
       : imageUrl;
-    
+
+    console.log('[LLM] Using multimodal completion, image path:', imagePath);
+    console.log('[LLM] Prompt length:', prompt.length);
+
     try {
       const result = await llamaContext.completion({
         prompt,
@@ -155,12 +211,16 @@ export async function generateResponse(
           onToken(token.token);
         }
       });
-      
+
+      console.log('[LLM] Multimodal completion done, response length:', response.length);
       return response.trim();
     } catch (imgError) {
-      console.warn('Failed multimodal completion:', imgError);
-      // Fall through to text-only completion
+      console.error('[LLM] Failed multimodal completion:', imgError);
+      throw new Error('Vision analysis failed. Please try again.');
     }
+  } else if (imageUrl && !isMultimodalEnabled) {
+    console.warn('[LLM] Image provided but multimodal NOT enabled — vision projector not loaded');
+    throw new Error('Vision is not available. The mmproj model needs to be downloaded.');
   }
   
   // Standard text completion
@@ -220,7 +280,9 @@ export async function releaseLLM(): Promise<void> {
   if (llamaContext) {
     await llamaContext.release();
     llamaContext = null;
-    console.log('LLM released from memory');
+    isMultimodalEnabled = false;
+    wasLoadedWithVision = false;
+    console.log('[LLM] Released from memory');
   }
 }
 
@@ -234,18 +296,18 @@ export async function generatePCR(
   transcript: string,
   onToken?: (token: string) => void
 ): Promise<string> {
-  const systemPrompt = `You are an expert EMS documentation system. Generate a structured Patient Care Report (PCR) from the following first responder verbal notes. Use standard EMS abbreviations (pt, y/o, hx, dx, tx, LOC, GCS, BP, HR, RR, SpO2, etc).
+  const systemPrompt = `You are an EMS documentation system. Generate a structured PCR from first responder notes. Use EMS abbreviations throughout.
 
-Format the report with these sections:
-- CHIEF COMPLAINT: One-line summary
-- HPI: Brief history of present illness/injury
-- VITALS: Any vitals mentioned (BP, HR, RR, SpO2, GCS, temp). Write "Not documented" for missing vitals.
-- PHYSICAL EXAM: Relevant findings
-- ASSESSMENT: Clinical impression / working diagnosis
-- INTERVENTIONS: Treatments performed on scene and in transport
-- DISPOSITION: Transport destination, patient condition at transfer
+Output these sections, each on its own line starting with the section name in caps followed by a colon:
+CHIEF COMPLAINT: One line only.
+HPI: 2-3 sentences max. Telegraphic style.
+VITALS: List each vital on one line (BP, HR, RR, SpO2, GCS, temp). Write "Not documented" for missing.
+PHYSICAL EXAM: 1-2 bullet points of key findings only.
+ASSESSMENT: Working diagnosis in one line.
+INTERVENTIONS: Bullet list of treatments, one per line.
+DISPOSITION: Destination and patient condition in one line.
 
-Be concise. Use bullet points within sections. Do not fabricate information not present in the transcript.`;
+Rules: No prose paragraphs. No preambles or summaries. No fabrication. Maximum 1-2 bullet points per section.`;
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -265,15 +327,15 @@ export async function generateTriageAssessment(
   pcrText: string,
   onToken?: (token: string) => void
 ): Promise<string> {
-  const systemPrompt = `You are an EMS clinical decision support system. Analyze the following Patient Care Report and provide a triage assessment.
+  const systemPrompt = `You are an EMS clinical decision support system. Analyze the PCR and provide a triage assessment.
 
-Respond with exactly these sections:
-- ACUITY: ESI level (1-5) with one-line justification. ESI 1 = immediate life threat, ESI 5 = non-urgent.
-- DIFFERENTIAL DX: Top 3 most likely diagnoses based on the clinical picture, each with brief reasoning.
-- RECOMMENDED INTERVENTIONS: Any additional assessments or treatments to consider.
-- TRANSPORT PRIORITY: Emergent / Urgent / Non-urgent, with recommended facility type (trauma center, stroke center, nearest ED, etc).
+Output these sections, each on its own line starting with the section name in caps followed by a colon:
+ACUITY: ESI level (1-5) with one-line justification.
+DIFFERENTIAL DX: Top 3 diagnoses, one line each, numbered.
+RECOMMENDED INTERVENTIONS: Bullet list, one per line. Only actionable items.
+TRANSPORT PRIORITY: Emergent/Urgent/Non-urgent + facility type in one line.
 
-Be concise and evidence-based. Do not fabricate findings not supported by the PCR.`;
+Rules: No preambles, disclaimers, or summaries. Maximum 2 sentences per section. No fabrication.`;
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },

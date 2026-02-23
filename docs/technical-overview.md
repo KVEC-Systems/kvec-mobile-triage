@@ -26,17 +26,17 @@ This documentation crisis has cascading consequences across the healthcare syste
 
 - **Connectivity gap:** Rural and austere environments — where EMS providers operate most independently — have the least reliable network access. Cloud-based documentation tools fail precisely where they are needed most: disaster zones, rural highways, underground structures, and mass casualty incidents where cellular networks are congested or destroyed. HIPAA compliance further discourages transmitting identifiable patient data over public networks.
 
-**Impact potential:** There are approximately 40 million EMS transports per year in the United States, each requiring a PCR. KVEC Triage reduces documentation time from 20–40 minutes to under 2 minutes by enabling providers to speak their notes naturally at the point of care and receive a complete, structured PCR within seconds. This has direct, measurable impact on documentation accuracy (immediate capture vs. hours-delayed recall), provider availability (eliminating the largest administrative time sink), hospital handoff quality (structured reports available before arrival), and billing accuracy (complete documentation at the source). Because the app runs entirely on-device with zero data transmission, it is deployable in the most connectivity-constrained and privacy-sensitive environments in healthcare — exactly where the need is greatest.
+**Impact potential:** There are approximately 40 million EMS transports per year in the United States, each requiring a PCR. KVEC Triage reduces documentation time from 20–40 minutes to under 2 minutes by enabling providers to enter brief clinical notes at the point of care and receive a complete, structured PCR within seconds. This has direct, measurable impact on documentation accuracy (immediate capture vs. hours-delayed recall), provider availability (eliminating the largest administrative time sink), hospital handoff quality (structured reports available before arrival), and billing accuracy (complete documentation at the source). Because the app runs entirely on-device with zero data transmission, it is deployable in the most connectivity-constrained and privacy-sensitive environments in healthcare — exactly where the need is greatest.
 
 ## Overall solution
 
 **MedGemma as the core clinical intelligence across three integrated capabilities:**
 
-KVEC Triage uses MedGemma 4B (Q4_K_M quantization), a Health AI Developer Foundations (HAI-DEF) model from Google, as the sole AI backbone for all clinical features. MedGemma's medical domain pre-training makes it uniquely suited for this application — it understands clinical terminology, EMS abbreviations, anatomical descriptions, and diagnostic reasoning in ways that general-purpose models do not. We leverage MedGemma in three distinct roles within a single mobile application:
+KVEC Triage uses MedGemma 4B (Q3_K_S quantization), a Health AI Developer Foundations (HAI-DEF) model from Google, as the sole AI backbone for all clinical features. MedGemma's medical domain pre-training makes it uniquely suited for this application — it understands clinical terminology, EMS abbreviations, anatomical descriptions, and diagnostic reasoning in ways that general-purpose models do not. We leverage MedGemma in three distinct roles within a single mobile application:
 
 **1. Structured PCR Generation (Text)**
 
-The provider records verbal patient notes — spoken naturally as they would during a hospital radio report — which are transcribed on-device by Voxtral Mini 4B. The transcript is then passed to MedGemma with a carefully engineered system prompt that instructs it to produce a structured PCR following NHTSA/NEMSIS standards. The prompt specifies seven required sections (Chief Complaint, HPI, Vitals, Physical Exam, Assessment, Interventions, Disposition), enforces standard EMS abbreviations (pt, y/o, hx, dx, BP, HR, RR, SpO2, GCS), and explicitly prohibits fabricating clinical findings not present in the source transcript. MedGemma's medical training allows it to correctly infer section boundaries from unstructured speech — for example, placing "12-lead shows ST elevation in V1–V4" under Physical Exam while deriving "STEMI" as the Assessment, or distinguishing interventions performed ("administered 324mg ASA") from objective findings ("diaphoretic, anxious appearance"). Tokens stream to the UI in real-time, giving providers immediate visual feedback as the report generates.
+The provider enters clinical notes directly into the app — written as they would speak during a hospital radio report or jotted down at the point of care. These notes are passed to MedGemma with a carefully engineered system prompt that instructs it to produce a structured PCR following NHTSA/NEMSIS standards. The prompt specifies seven required sections (Chief Complaint, HPI, Vitals, Physical Exam, Assessment, Interventions, Disposition), enforces standard EMS abbreviations (pt, y/o, hx, dx, BP, HR, RR, SpO2, GCS), and explicitly prohibits fabricating clinical findings not present in the source notes. MedGemma's medical training allows it to correctly infer section boundaries from unstructured input — for example, placing "12-lead shows ST elevation in V1–V4" under Physical Exam while deriving "STEMI" as the Assessment, or distinguishing interventions performed ("administered 324mg ASA") from objective findings ("diaphoretic, anxious appearance"). Tokens stream to the UI in real-time, giving providers immediate visual feedback as the report generates.
 
 **2. Clinical Decision Support — Triage Assessment (Reasoning)**
 
@@ -57,17 +57,15 @@ Each mode uses a domain-specific system prompt that guides MedGemma's visual ana
 
 **Architecture: Fully on-device Edge AI deployment on consumer mobile hardware**
 
-KVEC Triage is a React Native mobile application (Expo SDK 54, React Native 0.81, TypeScript) with New Architecture enabled. The entire AI pipeline — speech recognition, language model inference, and vision processing — runs locally on the device with no cloud dependencies after the initial one-time model download (~5.9GB total).
+KVEC Triage is a React Native mobile application (Expo SDK 54, React Native 0.81, TypeScript) with New Architecture enabled. The entire AI pipeline — language model inference and vision processing — runs locally on the device with no cloud dependencies after the initial one-time model download (~2.9GB total).
 
 **On-device inference stack:**
 
 | Component | Technology | Size | Purpose |
 |-----------|------------|------|---------|
 | LLM Runtime | llama.rn (GGUF format) | — | On-device MedGemma inference engine |
-| LLM Model | MedGemma 4B Q4_K_M (unsloth) | ~2.5GB | PCR generation, triage reasoning, medical chat |
+| LLM Model | MedGemma 4B Q3_K_S (unsloth) | ~1.94GB | PCR generation, triage reasoning, medical chat |
 | Vision Projector | mmproj-F16.gguf | ~945MB | Multimodal image understanding for medical vision |
-| ASR Engine | Custom Expo native module (C++/Swift) | — | Voxtral integration bridge |
-| ASR Model | Voxtral Mini 4B Q4_0 | ~2.5GB | On-device speech-to-text transcription |
 
 **Performance on iPhone 15 Pro (A17 Pro, 8GB RAM):**
 
@@ -77,16 +75,13 @@ KVEC Triage is a React Native mobile application (Expo SDK 54, React Native 0.81
 | PCR generation (typical report) | ~15–30 seconds |
 | Triage assessment | ~10–20 seconds |
 | Token throughput | ~15–25 tokens/sec |
-| Runtime memory footprint | ~3.5 GB |
-| Audio recording format | 16kHz mono PCM WAV |
+| Runtime memory footprint | ~2.5 GB |
 
-MedGemma runs with all 99 layers offloaded to GPU via Apple Metal, with a 2048-token context window, 512-token batch size, and temperature 0.3 for deterministic clinical output. The Q4_K_M quantization was selected after testing multiple quantization levels — it preserves medical terminology accuracy and reasoning quality while fitting within the memory budget of modern smartphones (8GB+ RAM).
+MedGemma runs with all 99 layers offloaded to GPU via Apple Metal, with a 2048-token context window, 512-token batch size, and temperature 0.3 for deterministic clinical output. The Q3_K_S quantization was selected after testing multiple quantization levels — it preserves medical terminology accuracy and reasoning quality while fitting within the memory budget of modern smartphones (8GB+ RAM). The smaller quantization also reduces the total download size, enabling faster first-launch setup.
 
 **Key engineering decisions for feasibility:**
 
-- **Custom native module for ASR:** Voxtral Mini 4B required a custom Expo module (`expo-voxtral`) with a C++/Swift bridge to interface with the Voxtral.cpp inference library. This was necessary because no existing React Native package supports Voxtral's architecture. The module exposes `loadModel()`, `transcribe()`, `releaseModel()`, and `isModelLoaded()` to the JavaScript layer.
-
-- **Singleton model management:** Both MedGemma and Voxtral are managed as singletons to prevent duplicate model loads that would exceed device memory. The LLM context is initialized once on app launch and shared across PCR generation, triage assessment, and medical chat.
+- **On-demand model loading:** MedGemma is loaded into memory only when the first inference is requested, rather than at app launch. This keeps the app responsive during startup and avoids holding ~2.5GB of GPU memory when the user is still entering notes. The LLM context is managed as a singleton and shared across PCR generation, triage assessment, and medical chat.
 
 - **Streaming UI:** Tokens stream to the interface in real-time via callbacks, so providers see the PCR building progressively rather than waiting for full generation. This provides immediate feedback and allows early assessment of output quality.
 
@@ -105,9 +100,9 @@ We evaluated PCR generation across representative EMS scenarios — STEMI with f
 3. **Fidelity** — No hallucinated clinical findings beyond what appears in the source transcript
 4. **Conciseness** — Appropriate detail level matching ePCR documentation standards
 
-MedGemma reliably transforms disjointed verbal notes into properly sectioned, clinically coherent PCRs. The model's medical domain training is evident in its ability to correctly categorize findings across sections, use appropriate clinical terminology, and distinguish subjective assessment from objective findings — capabilities that general-purpose language models consistently struggle with in EMS documentation contexts.
+MedGemma reliably transforms disjointed clinical notes into properly sectioned, clinically coherent PCRs. The model's medical domain training is evident in its ability to correctly categorize findings across sections, use appropriate clinical terminology, and distinguish subjective assessment from objective findings — capabilities that general-purpose language models consistently struggle with in EMS documentation contexts.
 
-**Deployment readiness:** The app is built with Expo Application Services (EAS) for production iOS and Android builds. The one-time model download (~5.9GB) occurs on first launch over WiFi, after which the app functions indefinitely without internet connectivity. The download manager supports resume on interruption and validates file integrity by size before marking models as ready.
+**Deployment readiness:** The app is built with Expo Application Services (EAS) for production iOS and Android builds. The one-time model download (~2.9GB) occurs on first launch over WiFi, after which the app functions indefinitely without internet connectivity. The download manager supports resume on interruption and validates file integrity by size before marking models as ready.
 
 ---
 

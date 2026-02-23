@@ -12,12 +12,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { areModelsReady } from '../lib/download';
 import { initializeLLM, generateResponse, isLLMReady, isVisionEnabled, type ChatMessage, type ChatMessageContent } from '../lib/llm';
 import { HamburgerMenu } from '../components/HamburgerMenu';
+import { saveChat, updateChat, loadChat } from '../lib/chat-storage';
 
 // Helper to extract text content from message
 function getMessageText(content: string | ChatMessageContent[]): string {
@@ -60,6 +61,7 @@ const VISION_MODES: VisionMode[] = [
 ];
 
 export default function ChatScreen() {
+  const { id: chatIdParam } = useLocalSearchParams<{ id?: string }>();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -68,25 +70,35 @@ export default function ChatScreen() {
   const [streamingText, setStreamingText] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [activeVisionMode, setActiveVisionMode] = useState<VisionMode | null>(null);
+  const activeChatId = useRef<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
 
-  // Check if models exist on mount
+  // Check if models exist on mount, load chat if ID provided
   useEffect(() => {
     async function checkAndLoadModels() {
       try {
         const available = await areModelsReady();
-        
+
         if (!available) {
           router.replace('/download');
           return;
         }
-        
+
         setIsCheckingModels(false);
         setIsLoadingModel(true);
-        
-        // Initialize LLM
-        await initializeLLM();
+
+        // Initialize LLM with vision support for multimodal chat
+        await initializeLLM(true);
+
+        // Load saved chat if ID provided
+        if (chatIdParam) {
+          const saved = await loadChat(chatIdParam);
+          if (saved) {
+            setMessages(saved.messages);
+            activeChatId.current = saved.id;
+          }
+        }
       } catch (error) {
         console.error('Error checking models:', error);
       } finally {
@@ -95,6 +107,15 @@ export default function ChatScreen() {
       }
     }
     checkAndLoadModels();
+  }, [chatIdParam]);
+
+  // Start a new chat
+  const handleNewChat = useCallback(() => {
+    setMessages([]);
+    setInputText('');
+    setSelectedImage(null);
+    setStreamingText('');
+    activeChatId.current = null;
   }, []);
 
   // Pick image from camera
@@ -190,15 +211,16 @@ export default function ChatScreen() {
     try {
       // Add system message for medical context on first message
       const promptMessages: ChatMessage[] = messages.length === 0
-        ? [{ role: 'system', content: `You are MedGemma, a medical AI assistant running on-device for EMS and clinical support. You provide accurate, evidence-based health information.
+        ? [{ role: 'system', content: `You are MedGemma, a concise medical AI for EMS field support.
 
-Guidelines:
-- For medical emergencies, always advise calling 911 or local emergency services
-- You are a clinical reasoning aid, not a diagnostic tool — always recommend professional medical evaluation
-- When analyzing symptoms, present a structured differential diagnosis with reasoning
-- Use standard medical terminology with plain-language explanations
-- If unsure, say so — do not speculate beyond the evidence provided
-- When analyzing images, describe findings systematically and note any limitations` }, ...newMessages]
+Rules:
+- Lead with the direct answer, then brief supporting details
+- Use bullet points, not paragraphs
+- Keep responses under 150 words unless asked for detail
+- Use standard medical terminology
+- For images: describe key findings in bullets, note limitations
+- If unsure, say so briefly
+- For emergencies, advise calling 911` }, ...newMessages]
         : newMessages;
       
       let fullResponse = '';
@@ -209,8 +231,17 @@ Guidelines:
       });
       
       const assistantMessage: ChatMessage = { role: 'assistant', content: fullResponse };
-      setMessages([...newMessages, assistantMessage]);
+      const updatedMessages = [...newMessages, assistantMessage];
+      setMessages(updatedMessages);
       setStreamingText('');
+
+      // Auto-save chat
+      if (activeChatId.current) {
+        await updateChat(activeChatId.current, updatedMessages);
+      } else {
+        const saved = await saveChat(updatedMessages);
+        activeChatId.current = saved.id;
+      }
     } catch (error) {
       console.error('Error generating response:', error);
       const errorMessage: ChatMessage = { 
@@ -253,7 +284,12 @@ Guidelines:
             <Text style={styles.headerTitle}>MedGemma</Text>
           </View>
           
-          <View style={{ width: 44 }} />
+          <TouchableOpacity
+            style={styles.newChatButton}
+            onPress={handleNewChat}
+          >
+            <Ionicons name="add" size={24} color="#2563EB" />
+          </TouchableOpacity>
         </View>
         {isLoadingModel && (
           <Text style={styles.loadingModelText}>Loading model...</Text>
@@ -311,7 +347,7 @@ Guidelines:
           );
         })}
         
-        {/* Streaming response */}
+        {/* Streaming response — plain text while generating, formatted after */}
         {streamingText && (
           <View style={[styles.messageBubble, styles.assistantBubble]}>
             <Text style={[styles.messageText, styles.assistantText]}>
@@ -435,6 +471,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 8,
     backgroundColor: '#E2E8F0',
+  },
+  newChatButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
   },
   headerContent: {
     flexDirection: 'row',

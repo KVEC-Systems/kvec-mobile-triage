@@ -9,21 +9,21 @@
 
 **[Show app icon / splash screen]**
 
-> "KVEC Triage is a mobile app that uses MedGemma to solve one of the biggest problems in emergency medicine — documentation. Every EMS call requires a Patient Care Report, and paramedics spend 20 to 40 minutes writing each one, usually hours after the call from memory. KVEC Triage lets them speak their notes at the point of care and get a complete, structured report in seconds — entirely on-device, entirely offline."
+> "KVEC Triage is a mobile app that uses MedGemma to solve one of the biggest problems in emergency medicine — documentation. Every EMS call requires a Patient Care Report, and paramedics spend 20 to 40 minutes writing each one, usually hours after the call from memory. KVEC Triage lets them enter brief clinical notes at the point of care and get a complete, structured report in seconds — entirely on-device, entirely offline."
 
 ## Demo 1: PCR Generation (0:15–1:15)
 
-**[Show the PCR Recorder screen — the main screen]**
+**[Show the Clinical Notes screen — the main screen]**
 
-> "Here's how it works. The provider taps record and speaks their patient notes, just like they would during a radio report to the hospital."
+> "Here's how it works. The provider opens the app and types their clinical notes — just quick shorthand, the way they'd speak during a radio report to the hospital."
 
-**[Tap record, speak a sample patient scenario — e.g. chest pain STEMI case. Tap stop.]**
+**[Type or paste sample clinical notes — e.g. chest pain STEMI case]**
 
-> "The audio is transcribed on-device by Voxtral Mini 4B — no cloud, no API calls. The transcript appears here."
+> "These are rough, unstructured notes — abbreviations, shorthand, the way providers actually talk. Now tap Generate PCR."
 
-**[Show transcript appearing. Tap "Generate PCR".]**
+**[Tap "Generate PCR".]**
 
-> "Now MedGemma takes that transcript and generates a structured Patient Care Report in real time. You can see the sections streaming in — Chief Complaint, HPI, Vitals, Physical Exam, Assessment, Interventions, and Disposition. These follow NHTSA and NEMSIS documentation standards. MedGemma uses correct EMS abbreviations, organizes findings into the right sections, and never fabricates information that wasn't in the original notes."
+> "MedGemma takes those notes and generates a structured Patient Care Report in real time. You can see the sections streaming in — Chief Complaint, HPI, Vitals, Physical Exam, Assessment, Interventions, and Disposition. These follow NHTSA and NEMSIS documentation standards. MedGemma uses correct EMS abbreviations, organizes findings into the right sections, and never fabricates information that wasn't in the original notes."
 
 **[Let the PCR finish generating. Scroll through it briefly.]**
 
@@ -78,3 +78,4 @@
 - Keep screen recording steady, use zoom-in edits for small text if needed
 - Consider a brief title card at the start: "KVEC Triage — MedGemma Impact Challenge"
 - Aim for natural pacing — it's OK to be slightly under 3:00
+- Sample clinical notes to paste for Demo 1: "65 y/o male, chest pain x 2 hrs, substernal pressure radiating to left arm, diaphoretic, hx HTN and diabetes, BP 168/94, HR 92, SpO2 96% RA, 12-lead shows ST elevation V1-V4, administered ASA 324mg, nitro 0.4mg SL with some relief, IV established 18g left AC, transporting emergent to St. Mary's cardiac cath lab, patient alert and oriented x4"
