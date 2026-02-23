@@ -13,6 +13,7 @@ import {
   type DownloadResumable,
 } from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 // Storage keys
 const DOWNLOAD_STATE_KEY = 'medgemma_download_state';
@@ -23,12 +24,12 @@ let activeDownload: DownloadResumable | null = null;
 // HuggingFace model URLs
 const HF_BASE = 'https://huggingface.co';
 
-// Model configuration
+// Model configuration — Q4_0 on Android for faster NEON inference, Q4_K_M on iOS for better quality with Metal
 const MODELS = {
   medgemmaGguf: {
     repo: 'unsloth/medgemma-4b-it-GGUF',
-    file: 'medgemma-4b-it-Q4_K_M.gguf',
-    size: 2490000000, // ~2.49GB
+    file: Platform.OS === 'android' ? 'medgemma-4b-it-Q4_0.gguf' : 'medgemma-4b-it-Q4_K_M.gguf',
+    size: Platform.OS === 'android' ? 2340000000 : 2490000000, // ~2.34GB Q4_0 / ~2.49GB Q4_K_M
   },
   medgemmaMmproj: {
     repo: 'unsloth/medgemma-4b-it-GGUF',

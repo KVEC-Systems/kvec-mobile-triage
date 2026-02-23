@@ -5,6 +5,7 @@
 
 import { initLlama, type LlamaContext } from 'llama.rn';
 import * as Device from 'expo-device';
+import { Platform } from 'react-native';
 import { getGgufModelPath, getMmprojPath } from './download';
 
 // LLM context singleton
@@ -83,7 +84,8 @@ export async function initializeLLM(enableVision = false): Promise<boolean> {
     console.log('[LLM] Vision enabled:', enableVision);
 
     const gpuLayers = Device.isDevice ? 99 : 0;
-    console.log('[LLM] Device:', !Device.isDevice ? 'Simulator' : 'Physical', '| GPU layers:', gpuLayers);
+    const threadCount = Platform.OS === 'android' ? 6 : 4;
+    console.log('[LLM] Device:', !Device.isDevice ? 'Simulator' : 'Physical', '| GPU layers:', gpuLayers, '| Threads:', threadCount);
 
     const startTime = Date.now();
     console.log('[LLM] Calling initLlama...');
@@ -91,8 +93,9 @@ export async function initializeLLM(enableVision = false): Promise<boolean> {
       model: modelPath,
       n_ctx: 2048,      // Context size
       n_batch: 512,     // Batch size for prompt processing
-      n_threads: 4,     // Number of threads
-      n_gpu_layers: gpuLayers, // GPU via Metal on device, CPU-only on simulator
+      n_threads: threadCount, // 6 threads for Android (Tensor G4), 4 for iOS
+      n_gpu_layers: gpuLayers, // GPU via Metal/Vulkan on device, CPU-only on simulator
+      flash_attn: true,  // Flash attention for faster inference
       ctx_shift: !enableVision, // Disable context shifting only when multimodal is needed
     });
 

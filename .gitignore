@@ -43,3 +43,4 @@ yarn-error.*
 # Voxtral.cpp vendored source (keep code, ignore git metadata)
 modules/expo-voxtral/cpp/voxtral.cpp/.git
 modules/expo-voxtral/cpp/voxtral.cpp/ggml/.git
+modules/expo-voxtral/android/build
