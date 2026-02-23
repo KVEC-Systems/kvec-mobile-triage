@@ -32,7 +32,7 @@ This documentation crisis has cascading consequences across the healthcare syste
 
 **MedGemma as the core clinical intelligence across three integrated capabilities:**
 
-KVEC Triage uses MedGemma 4B (Q3_K_S quantization), a Health AI Developer Foundations (HAI-DEF) model from Google, as the sole AI backbone for all clinical features. MedGemma's medical domain pre-training makes it uniquely suited for this application — it understands clinical terminology, EMS abbreviations, anatomical descriptions, and diagnostic reasoning in ways that general-purpose models do not. We leverage MedGemma in three distinct roles within a single mobile application:
+KVEC Triage uses MedGemma 4B (Q4_K_M quantization), a Health AI Developer Foundations (HAI-DEF) model from Google, as the sole AI backbone for all clinical features. MedGemma's medical domain pre-training makes it uniquely suited for this application — it understands clinical terminology, EMS abbreviations, anatomical descriptions, and diagnostic reasoning in ways that general-purpose models do not. We leverage MedGemma in three distinct roles within a single mobile application:
 
 **1. Structured PCR Generation (Text)**
 
@@ -57,14 +57,14 @@ Each mode uses a domain-specific system prompt that guides MedGemma's visual ana
 
 **Architecture: Fully on-device Edge AI deployment on consumer mobile hardware**
 
-KVEC Triage is a React Native mobile application (Expo SDK 54, React Native 0.81, TypeScript) with New Architecture enabled. The entire AI pipeline — language model inference and vision processing — runs locally on the device with no cloud dependencies after the initial one-time model download (~2.9GB total).
+KVEC Triage is a React Native mobile application (Expo SDK 54, React Native 0.81, TypeScript) with New Architecture enabled. The entire AI pipeline — language model inference and vision processing — runs locally on the device with no cloud dependencies after the initial one-time model download (~3.4GB total).
 
 **On-device inference stack:**
 
 | Component | Technology | Size | Purpose |
 |-----------|------------|------|---------|
 | LLM Runtime | llama.rn (GGUF format) | — | On-device MedGemma inference engine |
-| LLM Model | MedGemma 4B Q3_K_S (unsloth) | ~1.94GB | PCR generation, triage reasoning, medical chat |
+| LLM Model | MedGemma 4B Q4_K_M (unsloth) | ~2.49GB | PCR generation, triage reasoning, medical chat |
 | Vision Projector | mmproj-F16.gguf | ~945MB | Multimodal image understanding for medical vision |
 
 **Performance on iPhone 15 Pro (A17 Pro, 8GB RAM):**
@@ -77,17 +77,17 @@ KVEC Triage is a React Native mobile application (Expo SDK 54, React Native 0.81
 | Token throughput | ~15–25 tokens/sec |
 | Runtime memory footprint | ~2.5 GB |
 
-MedGemma runs with all 99 layers offloaded to GPU via Apple Metal, with a 2048-token context window, 512-token batch size, and temperature 0.3 for deterministic clinical output. The Q3_K_S quantization was selected after testing multiple quantization levels — it preserves medical terminology accuracy and reasoning quality while fitting within the memory budget of modern smartphones (8GB+ RAM). The smaller quantization also reduces the total download size, enabling faster first-launch setup.
+MedGemma runs with all 99 layers offloaded to GPU via Apple Metal on physical devices, with a 2048-token context window, 512-token batch size, and temperature 0.3 for deterministic clinical output. On simulator builds, GPU offloading is automatically disabled (0 layers) for compatibility, detected at runtime via `expo-device`. The Q4_K_M quantization was selected after testing multiple quantization levels — it provides the best balance of medical terminology accuracy, reasoning quality, and inference speed while fitting within the memory budget of modern smartphones (8GB+ RAM).
 
 **Key engineering decisions for feasibility:**
 
-- **On-demand model loading:** MedGemma is loaded into memory only when the first inference is requested, rather than at app launch. This keeps the app responsive during startup and avoids holding ~2.5GB of GPU memory when the user is still entering notes. The LLM context is managed as a singleton and shared across PCR generation, triage assessment, and medical chat.
+- **On-demand model loading with vision reinit:** MedGemma is loaded into memory only when the first inference is requested, rather than at app launch. This keeps the app responsive during startup and avoids holding ~2.5GB of GPU memory when the user is still entering notes. The LLM context is managed as a singleton and shared across PCR generation, triage assessment, and medical chat. When the user navigates from text-only features (PCR generation) to multimodal features (medical chat with images), the LLM context is automatically released and reinitialized with the correct configuration — multimodal inference requires `ctx_shift: false`, which is incompatible with the text-only configuration. This reinit is transparent to the user.
 
 - **Streaming UI:** Tokens stream to the interface in real-time via callbacks, so providers see the PCR building progressively rather than waiting for full generation. This provides immediate feedback and allows early assessment of output quality.
 
 - **Prompt engineering for safety:** System prompts explicitly instruct MedGemma to never fabricate clinical findings, to mark undocumented vitals as "Not documented" rather than hallucinating values, and to include disclaimers on all triage and vision outputs. The triage prompt enforces structured output sections to prevent free-form responses that might be misinterpreted.
 
-- **Local persistence:** Generated PCRs are automatically saved to AsyncStorage with their associated triage assessments, capped at 100 entries. Providers can review, copy, and manage their report history entirely offline.
+- **Local persistence:** Generated PCRs are automatically saved to AsyncStorage with their associated triage assessments, capped at 100 entries. Medical chat conversations are also persisted automatically after each assistant response, with chat history capped at 50 entries. Providers can review, copy, and manage their report and chat history entirely offline.
 
 - **Privacy by architecture:** No network calls are made after model download. No analytics, no telemetry, no cloud APIs. Patient data exists only in local device storage under the provider's control. This is the strongest possible HIPAA compliance posture — there is no data to breach because no data is transmitted.
 
@@ -102,7 +102,7 @@ We evaluated PCR generation across representative EMS scenarios — STEMI with f
 
 MedGemma reliably transforms disjointed clinical notes into properly sectioned, clinically coherent PCRs. The model's medical domain training is evident in its ability to correctly categorize findings across sections, use appropriate clinical terminology, and distinguish subjective assessment from objective findings — capabilities that general-purpose language models consistently struggle with in EMS documentation contexts.
 
-**Deployment readiness:** The app is built with Expo Application Services (EAS) for production iOS and Android builds. The one-time model download (~2.9GB) occurs on first launch over WiFi, after which the app functions indefinitely without internet connectivity. The download manager supports resume on interruption and validates file integrity by size before marking models as ready.
+**Deployment readiness:** The app is built with Expo Application Services (EAS) for production iOS and Android builds. The one-time model download (~3.4GB) occurs on first launch over WiFi, after which the app functions indefinitely without internet connectivity. The download manager supports resume on interruption and validates file integrity by size before marking models as ready.
 
 ---
 
